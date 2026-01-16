@@ -1,9 +1,11 @@
 {
   "name": "mbkbucket",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Bucket manager for mbkauthe apps",
   "main": "index.js",
+  "type": "module",
   "scripts": {
+    "dev": "nodemon index.js",
     "test": "echo \\\"Error: no test specified\\\" && exit 1"
   },
   "repository": {
@@ -28,6 +30,10 @@
   },
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
   "dependencies": {
-    "mbkauthe": "latest"
+    "mbkauthe": "latest",
+    "module": "^2.0.0"
+  },
+    "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }
