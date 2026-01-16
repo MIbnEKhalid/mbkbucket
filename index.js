@@ -1,1 +1,1 @@
-console.log("mbkbucket package initialized.");
+console.log("mbkbucket package initialized. Testing publish action");
