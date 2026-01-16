@@ -1,0 +1,1 @@
+console.log("mbkbucket package initialized.");
