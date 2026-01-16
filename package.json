@@ -1,0 +1,33 @@
+{
+  "name": "mbkbucket",
+  "version": "1.0.0",
+  "description": "Bucket manager for mbkauthe apps",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \\\"Error: no test specified\\\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MIbnEKhalid/mbkbucket.git"
+  },
+  "keywords": [
+    "s3-bucket",
+    "s3",
+    "bucket",
+    "r2-bucket",
+    "bucket-manager",
+    "manager",
+    "aws-sdk",
+    "cloudflare-r2",
+    "storage"
+  ],
+  "author": "Muhammad Bin Khalid",
+  "license": "GPL-2.0",
+  "bugs": {
+    "url": "https://github.com/MIbnEKhalid/mbkbucket/issues"
+  },
+  "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
+  "dependencies": {
+    "mbkauthe": "latest"
+  }
+}
