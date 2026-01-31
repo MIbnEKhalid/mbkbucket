@@ -44,6 +44,7 @@ server.engine("handlebars", engine({
     path.join(__dirname, "views"),
     path.join(__dirname, "views/partial"),
     path.join(__dirname, "node_modules/mbkauthe/views"),
+    path.join(__dirname, "../mbkauthe/views")
   ],
   cache: process.env.NODE_ENV === "production",
   helpers: {
@@ -132,13 +133,14 @@ server.set("view engine", "handlebars");
 server.set("views", [
   path.join(__dirname, "views"),
   path.join(__dirname, "node_modules/mbkauthe/views"),
+  path.join(__dirname, "../mbkauthe/views")
 ]);
 
 server.use(mbkauthe);
 server.use(generalLimiter);
 server.use(bucket);
 
-if (process.env.mbkbucket_testl === "dev") {
+if (process.env.mbkbucket_test === "dev") {
 
   console.log("[mbkbucket] Dev mode is enabled. Starting server in dev mode.");
 

@@ -73,6 +73,14 @@ export function deleteFiles(keys: string[], bucketName?: string): Promise<{
   deletedAt: string;
 }>;
 
+export function deleteFolder(prefix: string, bucketName?: string): Promise<{
+  results?: any[];
+  deletedCount: number;
+  errors?: any[];
+  deletedAt: string;
+  prefix?: string;
+}>;
+
 export function listfiles(
   prefix?: string,
   options?: {
@@ -185,6 +193,14 @@ declare module "mbkbucket/lib/s3" {
     deletedCount: number;
     errors: any[];
     deletedAt: string;
+  }>;
+
+  export function deleteFolder(prefix: string, bucketName?: string): Promise<{
+    results?: any[];
+    deletedCount: number;
+    errors?: any[];
+    deletedAt: string;
+    prefix?: string;
   }>;
   export function listfiles(
     prefix?: string,

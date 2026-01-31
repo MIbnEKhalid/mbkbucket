@@ -1223,8 +1223,7 @@
 
     /* Metadata row: folder / size / modified shown as compact badges */
     .file-row td:nth-child(3),
-    .file-row td:nth-child(4),
-    .file-row td:nth-child(5) {
+    .file-row td:nth-child(4) {
       padding: 0rem 1rem !important;
       display: flex;
       align-items: center;
@@ -1234,20 +1233,13 @@
     }
 
     .file-row td:nth-child(3)::before {
-      content: "Folder:";
-      font-weight: 600;
-      color: var(--dark-color-ml);
-      margin-right: 0.35rem;
-    }
-
-    .file-row td:nth-child(4)::before {
       content: "Size:";
       font-weight: 600;
       color: var(--dark-color-ml);
       margin-right: 0.35rem;
     }
 
-    .file-row td:nth-child(5)::before {
+    .file-row td:nth-child(4)::before {
       content: "Modified:";
       font-weight: 600;
       color: var(--dark-color-ml);
@@ -1597,9 +1589,10 @@
         <form id="deleteForm" method="post" action="/mbkbucket/delete" style="display: inline;">
           <input type="hidden" name="key" id="deleteKey">
           <input type="hidden" name="prefix" value="{{prefix}}">
-          <button type="submit" class="btn btn-danger">
+          <input type="hidden" name="folder" id="deleteIsFolder" value="">
+          <button type="submit" class="btn btn-danger" id="deleteConfirmButton">
             <i class="fas fa-trash"></i>
-            Delete File
+            <span id="deleteConfirmLabel">Delete File</span>
           </button>
         </form>
       </div>
@@ -1879,7 +1872,7 @@
           <td style="text-align:center;">
             <!-- no selection for folders -->
           </td>
-          <td style="padding-left: 1.5rem;" colspan="2">
+          <td style="padding-left: 1.5rem;">
             <div style="display: flex; align-items: center;">
               <div class="file-icon">
                 <i class="fas fa-folder"></i>
@@ -1892,13 +1885,17 @@
             </div>
           </td>
           <td>
-            <span style="color: var(--gray-color-ml); font-style: italic;">Folder</span>
-          </td>
-          <td>
             <span style="color: var(--gray-color-ml);">\u2014</span>
           </td>
           <td style="text-align: center;">
-            <span style="color: var(--gray-color-ml); font-style: italic;">Click to open</span>
+            <span style="color: var(--gray-color-ml);">\u2014</span>
+          </td>
+          <td style="text-align: center;">
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn-danger btn-sm delete-btn" data-key="${folderPath}/" data-is-folder="true" title="Delete folder">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -1921,9 +1918,6 @@
                 <div class="file-name" data-full-path="${file.Key}"></div>
               </div>
             </div>
-          </td>
-          <td>
-            <span class="folder-path" data-full-path="${file.Key}"></span>
           </td>
           <td>
             ${file.Size ? `<span class="file-size">${formatFileSize(file.Size)}</span>` : '<span style="color: var(--gray-color-ml);">N/A</span>'}
@@ -1995,11 +1989,8 @@
                 <i class="fas fa-file-alt"></i> Name
               </th>
               <th>
-                <i class="fas fa-folder"></i> Folder
-              </th>
-              <th>
                 <i class="fas fa-weight"></i> Size
-              </th>
+              </th> 
               <th>
                 <i class="fas fa-calendar"></i> Last Modified
               </th>
@@ -2085,9 +2076,26 @@
     document.getElementById('paginationList').innerHTML = paginationHTML;
   }
 
-  function confirmDelete(key) {
+  function confirmDelete(key, isFolder = false) {
     document.getElementById('deleteKey').value = key;
+    document.getElementById('deleteIsFolder').value = isFolder ? 'true' : '';
     document.getElementById('deleteFileName').textContent = key;
+
+    // Update modal message and button label for folders
+    const modalHeading = document.querySelector('#deleteModal .modal-body h6');
+    const smallText = document.querySelector('#deleteModal .modal-body small');
+    const confirmLabel = document.getElementById('deleteConfirmLabel');
+
+    if (isFolder) {
+      if (modalHeading) modalHeading.textContent = 'Are you sure you want to delete this folder and all its contents?';
+      if (smallText) smallText.textContent = 'This action will remove the folder and all files within it and cannot be undone.';
+      if (confirmLabel) confirmLabel.textContent = 'Delete Folder';
+    } else {
+      if (modalHeading) modalHeading.textContent = 'Are you sure you want to delete this file?';
+      if (smallText) smallText.textContent = 'This action cannot be undone.';
+      if (confirmLabel) confirmLabel.textContent = 'Delete File';
+    }
+
     document.getElementById('deleteModal').classList.add('show');
     document.getElementById('deleteModal').style.display = 'flex';
   }
@@ -2102,6 +2110,7 @@
     e.preventDefault();
 
     const key = document.getElementById('deleteKey').value;
+    const isFolder = document.getElementById('deleteIsFolder').value === 'true';
 
     try {
       const response = await fetch('/mbkbucket/delete', {
@@ -2109,7 +2118,7 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ key })
+        body: JSON.stringify({ key, folder: isFolder })
       });
 
       const data = await response.json();
@@ -2382,21 +2391,14 @@
 
       const dbtn = e.target.closest('.delete-btn');
       if (dbtn) {
+        e.stopPropagation();
         const key = dbtn.dataset.key;
-        if (key) confirmDelete(key);
+        const isFolder = dbtn.dataset.isFolder === 'true';
+        if (key) confirmDelete(key, isFolder);
         return;
       }
 
-      // Handle folder path clicks
-      const folderPath = e.target.closest('.folder-path.clickable');
-      if (folderPath) {
-        const folder = folderPath.getAttribute('data-folder');
-        if (folder) {
-          // Load files with new prefix
-          loadFiles(1, folder);
-        }
-        return;
-      }
+
     });
   });
 
@@ -2622,27 +2624,7 @@
         fileNameElement.textContent = truncatedName;
         fileNameElement.title = filename; // Full name on hover
 
-        if (folderPathElement) {
-          const displayFolder = folder || '/';
-          folderPathElement.textContent = displayFolder;
-          folderPathElement.title = folder ? `Click to filter by folder: ${folder}` : 'Root folder'; // Full path on hover
 
-          // Make folder clickable if not root and add keyboard accessibility
-          if (folder) {
-            folderPathElement.classList.add('clickable');
-            folderPathElement.setAttribute('data-folder', folder);
-            folderPathElement.setAttribute('role', 'button');
-            folderPathElement.setAttribute('tabindex', '0');
-            // allow Enter/Space to trigger folder navigation
-            folderPathElement.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loadFiles(1, folder); } };
-          } else {
-            folderPathElement.classList.remove('clickable');
-            folderPathElement.removeAttribute('data-folder');
-            folderPathElement.removeAttribute('role');
-            folderPathElement.removeAttribute('tabindex');
-            folderPathElement.onkeydown = null;
-          }
-        }
 
         const iconClass = getFileIcon(filename);
         const typeCategory = getFileTypeCategory(filename);
