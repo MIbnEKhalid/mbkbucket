@@ -138,7 +138,7 @@ server.use(mbkauthe);
 server.use(generalLimiter);
 server.use(bucket);
 
-if (process.env.test === "dev") {
+if (process.env.mbkbucket_testl === "dev") {
 
   console.log("[mbkbucket] Dev mode is enabled. Starting server in dev mode.");
 
@@ -195,4 +195,5 @@ if (process.env.test === "dev") {
 await checkVersion();
 
 
+export * from "./lib/index.js";
 export default server;
