@@ -8,16 +8,22 @@ import compression from "compression";
 import rateLimit from 'express-rate-limit';
 import bucket from "./lib/bucket.js";
 import { checkVersion } from "./lib/config/index.js";
+import { appVersion } from "./lib/config/index.js";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const assetVersion = appVersion;
 
 const server = express();
 server.set('trust proxy', 1);
 
 server.use(compression());
+server.use((req, res, next) => {
+  res.locals.assetVersion = assetVersion;
+  next();
+});
 
 // Rate limiting: general limiter for typical browsing/API usage and a stricter
 // limiter for dashboard (admin) routes.
@@ -33,6 +39,9 @@ const generalLimiter = rateLimit({
 
 server.use(express.json());
 server.use(express.urlencoded({ extended: true }));
+
+// Serve static assets from /public (CSS/JS/images)
+server.use(express.static(path.join(__dirname, 'public'), { maxAge: '365d', etag: true }));
 
 // Configure Handlebars (single setup)
 server.engine("handlebars", engine({
