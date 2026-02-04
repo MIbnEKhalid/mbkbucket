@@ -1,6 +1,6 @@
 {{!-- File Management System - Bucket Dashboard --}}
-<link rel="stylesheet" href="/css/bucketadmin.css?v={{assetVersion}}">
-<div id="bucketAppData" data-app-name="{{mbkautheVar.APP_NAME}}" hidden></div>
+<link rel="stylesheet" href="/mbkbucket/bucketadmin.css?v={{assetVersion}}">
+<div id="bucketAppData" data-app-name="{{APP_NAME}}" hidden></div>
 <!-- File Statistics -->
 <div class="dashboard-card file-stats">
   <div class="card-body">
@@ -36,9 +36,9 @@
 </div>
 {{/if}}
 
-<div class="row g-4 mb-4">
+<div class="mb-4">
   <!-- Upload Form -->
-  <div class="col-lg-6">
+  <div class="col-lg-12">
     <div class="dashboard-card h-100">
       <div class="card-header">
         <h5 class="card-title">
@@ -54,14 +54,14 @@
 
           <div class="mb-3">
             <label for="fileInput" class="form-label">Select Files or drag & drop</label>
-            <div id="dropZone" class="form-control form-control-lg"
-              style="min-height:120px; display:flex; align-items:center; justify-content:center; cursor:pointer; text-align:center;">
-              <div>
-                <i class="fas fa-cloud-upload-alt fa-2x" style="opacity: .65;"></i>
-                <div style="margin-top: 0.5rem; color: var(--gray-color-ml);">Drop files here or click to browse</div>
+            <div id="dropZone" class="upload-drop-zone">
+              <div class="drop-zone-content">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <div class="drop-text">Drop files here or click to browse</div>
+                <div class="drop-hint">Supports multiple files</div>
               </div>
             </div>
-            <input type="file" class="form-control d-none" id="fileInput" name="files" multiple>
+            <input type="file" class="form-control d-none" style="display: none;" id="fileInput" name="files" multiple>
             <div class="form-text">
               <i class="fas fa-info-circle"></i>
               You can drop multiple files. Large files will use chunked upload when available.
@@ -99,41 +99,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Search Filter -->
-  <div class="col-lg-6">
-    <div class="dashboard-card h-100">
-      <div class="card-header">
-        <h5 class="card-title">
-          <div class="card-icon">
-            <i class="fas fa-search"></i>
-          </div>
-          Search Files & Folders
-        </h5>
-      </div>
-      <div class="card-body">
-        <div class="mb-3">
-          <label for="searchInput" class="form-label">Search by Name</label>
-          <input type="text" class="form-control form-control-lg" id="searchInput" placeholder="Enter search term..."
-            onkeypress="if(event.key==='Enter') performSearch()">
-          <div class="form-text">
-            <i class="fas fa-info-circle"></i>
-            Search across all files and folders by name (case-insensitive)
-          </div>
-        </div>
-        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-          <button type="button" class="btn btn-primary btn-lg" onclick="performSearch()">
-            <i class="fas fa-search"></i>
-            Search
-          </button>
-          <button type="button" class="btn btn-outline-secondary btn-lg" onclick="clearSearch()">
-            <i class="fas fa-times"></i>
-            Clear
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- File List -->
@@ -145,7 +110,23 @@
       </div>
       <span id="fileListTitle">Files</span>
     </h5>
-    
+
+    <!-- Inline Search (moved from separate card) -->
+    <div class="search-inline" style="flex:1; max-width:640px; display:flex; gap:0.5rem; align-items:center; justify-content:center;">
+      <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search files and folders..." aria-label="Search files">
+      <button type="button" class="btn btn-sm btn-primary" onclick="performSearch()" aria-label="Search"><i class="fas fa-search"></i></button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSearch()" aria-label="Clear search"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="btn-group" role="group" aria-label="Actions">
+      <button type="button" class="btn btn-sm btn-success" onclick="createFile()" title="New Text File">
+        <i class="fas fa-file-alt"></i> New File
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-success" onclick="createFolder()" title="New Folder">
+        <i class="fas fa-folder-plus"></i> New Folder
+      </button>
+    </div>
+
     <div class="btn-group" role="group" aria-label="View Mode">
       <button type="button" class="btn btn-sm btn-light view-toggle-btn active" id="viewBtnFolder" onclick="changeViewMode('folder')" title="Folder View" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
         <i class="fas fa-folder"></i> Folders
@@ -230,7 +211,7 @@
         </div>
       </div>
       <div class="modal-body">
-        <div class="preview-content" aria-live="polite">
+        <div class="preview-content" id="previewContent" aria-live="polite">
           <div class="empty-preview">
             <i class="fas fa-spinner fa-spin"></i>
             <div style="margin-top:0.5rem; color:var(--gray-color-ml);">Loading preview...</div>
@@ -250,4 +231,7 @@
   </div>
 </div>
 
-<script src="/js/bucketadmincontent.js?v={{assetVersion}}"></script>
+<!-- Toast Container -->
+<div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; display: flex; flex-direction: column; gap: 10px;"></div>
+
+<script src="/mbkbucket/bucketadmin.js?v={{assetVersion}}"></script>

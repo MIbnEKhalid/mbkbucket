@@ -1,6 +1,6 @@
 {
   "name": "mbkbucket",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "S3 Bucket manager for mbktech.org apps",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
@@ -19,7 +19,7 @@
     "express": "^4.22.1",
     "express-handlebars": "^8.0.3",
     "express-rate-limit": "^7.0.1",
-    "mbkauthe": "^4.3.0",
+    "mbkauthe": "latest",
     "multer": "^2.0.2",
     "pg": "^8.16.3"
   },

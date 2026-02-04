@@ -10,29 +10,63 @@ let pageFolders = [];
 const bucketAppName = document.getElementById('bucketAppData')?.dataset.appName || '';
 // Bucket is configured centrally on the server; client should not select a bucket.
 
-// Show alert message
+// Show alert message (Toast)
 function showAlert(message, type = 'success') {
-    const alertId = type === 'success' ? 'successAlert' : 'errorAlert';
-    const messageId = type === 'success' ? 'successMessage' : 'errorMessage';
-
-    const alertEl = document.getElementById(alertId);
-    const messageEl = document.getElementById(messageId);
-
-    if (alertEl && messageEl) {
-        messageEl.textContent = message;
-        alertEl.style.display = 'flex';
-
-        // Auto dismiss after 5 seconds
-        setTimeout(() => {
-            alertEl.style.opacity = '0';
-            alertEl.style.transform = 'translateY(-10px)';
-            setTimeout(() => {
-                alertEl.style.display = 'none';
-                alertEl.style.opacity = '1';
-                alertEl.style.transform = 'translateY(0)';
-            }, 300);
-        }, 5000);
+    const container = document.getElementById('toast-container');
+    if (!container) {
+        // Fallback to old method if container missing
+        const alertId = type === 'success' ? 'successAlert' : 'errorAlert';
+        const messageId = type === 'success' ? 'successMessage' : 'errorMessage';
+        const alertEl = document.getElementById(alertId);
+        const messageEl = document.getElementById(messageId);
+        if (alertEl && messageEl) {
+            messageEl.textContent = message;
+            alertEl.style.display = 'flex';
+            setTimeout(() => alertEl.style.display = 'none', 5000);
+        }
+        return;
     }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    const isSuccess = type === 'success';
+    toast.className = `toast-notification ${type}`;
+    toast.style.cssText = `
+        background: ${isSuccess ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 300px;
+        transform: translateX(100%);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 500;
+    `;
+
+    toast.innerHTML = `
+        <i class="fas ${isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'}" style="font-size: 1.25rem;"></i>
+        <div style="flex: 1;">${message}</div>
+        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:white; cursor:pointer; opacity:0.8; font-size:1.2rem;">&times;</button>
+    `;
+
+    container.appendChild(toast);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.style.transform = 'translateX(0)';
+        toast.style.opacity = '1';
+    });
+
+    // Auto dismiss
+    setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
 }
 
 // Fetch and render files
@@ -106,12 +140,12 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         totalFilesCount.textContent = `${data.totalFiles} ${search ? 'Results' : 'Files'}`;
 
         if (search) {
-          filterInfo.textContent = `Search results for: "${search}"`;
-          fileListTitle.innerHTML = `Search Results <span class="text-muted">for: </span><span class="badge bg-info">${search}</span>`;
+            filterInfo.textContent = `Search results for: "${search}"`;
+            fileListTitle.innerHTML = `Search Results <span class="text-muted">for: </span><span class="badge bg-info">${search}</span>`;
         } else {
-          const label = prefix || bucketAppName || 'Root';
-          filterInfo.textContent = `Filtered by folder: ${label}`;
-          fileListTitle.innerHTML = `Files <span class="text-muted">in: </span><span class="badge bg-info">${label}</span>`;
+            const label = prefix || bucketAppName || 'Root';
+            filterInfo.textContent = `Filtered by folder: ${label}`;
+            fileListTitle.innerHTML = `Files <span class="text-muted">in: </span><span class="badge bg-info">${label}</span>`;
         }
 
         // Render files or empty state
@@ -256,19 +290,62 @@ function changeViewMode(mode) {
     renderFilesTable(pageFiles, pageFolders, currentPrefix);
 }
 
+// Extract folders that match a search query from file paths
+function extractMatchingFolders(files, search) {
+    if (!search) return [];
+    
+    const searchLower = search.toLowerCase();
+    const folderSet = new Set();
+    
+    files.forEach(file => {
+        const parts = file.Key.split('/');
+        // Remove filename
+        parts.pop();
+        
+        let currentPath = '';
+        parts.forEach(part => {
+             const segmentPath = currentPath ? `${currentPath}/${part}` : part;
+             currentPath = segmentPath;
+             
+             // If any part of the path matches the search, include that full path as a folder
+             // AND ensure we don't include the full file path, just the directory
+             if (part.toLowerCase().includes(searchLower)) {
+                 folderSet.add(currentPath);
+             }
+        });
+    });
+    
+    return Array.from(folderSet).sort();
+}
+
 // Render files table
 function renderFilesTable(files, folders = [], prefix = '') {
     // Determine which files/folders to show based on view mode
     let displayFiles = [];
     let displayFolders = [];
 
-    if (currentViewMode === 'flat') {
+    // Force flat view if searching
+    const isSearchActive = !!currentSearch;
+    const mode = isSearchActive ? 'flat' : currentViewMode;
+
+    if (mode === 'flat') {
         // In flat mode, show all files in the current loaded page/list regardless of folder depth
-        // And ignore folder objects (we just show file paths)
-        displayFiles = files;
-        // We don't show expandable folders in flat view, unless we want to keep them? 
-        // User asked for "all files displayed without folder". So empty folders.
-        displayFolders = [];
+        if (isSearchActive) {
+            // Search Mode:
+            // 1. Show files where FILENAME matches the search term
+            const searchLower = currentSearch.toLowerCase();
+            displayFiles = files.filter(f => {
+                const fileName = f.Key.split('/').pop();
+                return fileName.toLowerCase().includes(searchLower);
+            });
+
+            // 2. Show folders where FOLDER NAME matches the search term
+            displayFolders = extractMatchingFolders(files, currentSearch);
+        } else {
+            // Normal Flat Mode: Show all files, no folders
+            displayFiles = files;
+            displayFolders = [];
+        }
     } else {
         // Normal Folder View logic
         // Filter files to show only those at current level (not in subfolders)
@@ -338,7 +415,10 @@ function renderFilesTable(files, folders = [], prefix = '') {
                 <div class="file-name" style="font-weight: 700;">
                   <i class="fas fa-folder" style="margin-right: 0.5rem; color: #f59e0b;"></i>${folderName}/
                 </div>
-              </div>
+              </div>              
+              <button type="button" class="btn btn-danger btn-sm delete-btn dtm" onclick="event.stopPropagation(); confirmDelete('${folderPath}/', true);" data-key="${folderPath}/" data-is-folder="true" title="Delete folder">
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </td>
           <td>
@@ -349,7 +429,7 @@ function renderFilesTable(files, folders = [], prefix = '') {
           </td>
           <td style="text-align: center;">
             <div class="btn-group" role="group">
-              <button type="button" class="btn btn-danger btn-sm delete-btn" data-key="${folderPath}/" data-is-folder="true" title="Delete folder">
+              <button type="button" class="btn btn-danger btn-sm delete-btn" onclick="event.stopPropagation(); confirmDelete('${folderPath}/', true);" data-key="${folderPath}/" data-is-folder="true" title="Delete folder">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -431,18 +511,23 @@ function renderFilesTable(files, folders = [], prefix = '') {
     if (allRows === '') {
         document.getElementById('fileListContainer').innerHTML = `
         <div class="empty-state">
-          <i class="fas fa-folder-open"></i>
-          <h4>No files or folders</h4>
-          <p>${prefix ? `No files in folder: ${prefix}` : 'This folder is empty'}</p>
-          <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:1rem;">
-            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-              <i class="fas fa-cloud-upload-alt"></i> Upload File
+          <div style="margin-bottom: 1.5rem; position: relative; display: inline-block;">
+            <i class="fas fa-folder-open" style="font-size: 4rem; color: #cbd5e0;"></i>
+            <i class="fas fa-search" style="font-size: 2rem; color: var(--primary-color-ml); position: absolute; bottom: -5px; right: -10px; background: white; border-radius: 50%; padding: 5px;"></i>
+          </div>
+          <h4>No files found</h4>
+          <p style="max-width: 400px; margin: 0 auto 1.5rem; color: var(--text-muted-color-ml);">
+            ${prefix ? `This folder <strong>${prefix}</strong> is currently empty.` : 'Your bucket is empty. Start by uploading files or creating a new folder.'}
+          </p>
+          <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); document.getElementById('fileInput').click()">
+              <i class="fas fa-cloud-upload-alt"></i> Upload Files
             </button>
             <button class="btn btn-outline-secondary" onclick="createFolder()">
-              <i class="fas fa-folder-plus"></i> Create Folder
+              <i class="fas fa-folder-plus"></i> New Folder
             </button>
             ${prefix ? `<button class="btn btn-light" onclick="loadFiles(1, '')">
-              <i class="fas fa-arrow-left"></i> Back to Root
+              <i class="fas fa-home"></i> Go to Root
             </button>` : ''}
           </div>
         </div>
@@ -461,7 +546,7 @@ function renderFilesTable(files, folders = [], prefix = '') {
     document.getElementById('fileListContainer').innerHTML = `
       ${breadcrumb}
       <div class="table-responsive">
-        <div id="bulkActionsBar" style="display:none; padding: 0.75rem; border-bottom: 1px solid var(--gray-light-color-ml); background: var(--light-color-ml);">
+        <div id="bulkActionsBar" style="display:none; padding: 0.5rem; border-bottom: 1px solid var(--gray-light-color-ml); background: var(--light-color-ml);">
           <span id="bulkSelectedCount">0 selected</span>
           <div style="float: right;">
             <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>
@@ -665,10 +750,10 @@ function renderUploadQueue() {
     container.innerHTML = uploadQueue.map(item => `
       <div class="upload-item" data-id="${item.id}">
         <div class="meta">
-          <div class="file-icon"><i class="fas fa-file"></i></div>
-          <div>
+          <div style="display:flex; align-items:center; gap:0.75rem; min-width:0; width:100%; margin-bottom:5px;">
+            <div class="file-icon"><i class="fas fa-file"></i></div>
             <div class="name">${item.file.name}</div>
-            <div class="form-text">${formatFileSize(item.file.size)}</div>
+            <div class="form-text file-size" style="white-space:nowrap; color:var(--text-muted-color-ml); font-size:0.875rem; margin-left:auto;">${formatFileSize(item.file.size)}</div>
           </div>
         </div>
         <div style="min-width:220px;">
@@ -828,22 +913,7 @@ function startAllUploads() {
 document.getElementById('startUploadBtn')?.addEventListener('click', startAllUploads);
 document.getElementById('clearQueueBtn')?.addEventListener('click', function () { uploadQueue.length = 0; renderUploadQueue(); });
 
-// Reset upload form
-function resetUploadForm() {
-    const uploadBtn = document.getElementById('uploadBtn');
-    const uploadProgress = document.getElementById('uploadProgress');
 
-    setTimeout(() => {
-        uploadBtn.disabled = false;
-        uploadBtn.classList.remove('uploading');
-        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload File';
-        uploadProgress.style.display = 'none';
-
-        // Reset progress
-        document.getElementById('progressBar').style.width = '0%';
-        document.getElementById('uploadPercent').textContent = '0%';
-    }, 3000);
-}
 
 // Add hover effects and animations
 document.addEventListener('DOMContentLoaded', function () {
@@ -853,10 +923,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const initialPage = parseInt(urlParams.get('page')) || 1;
     loadFiles(initialPage, initialPrefix);
 
-    // Debounced search input (improves UX and reduces API calls)
+    // Search behavior: Trigger when the Search button is clicked OR when the user presses Enter in the search input
     const searchInputEl = document.getElementById('searchInput');
-    if (searchInputEl && typeof debounce === 'function') {
-        searchInputEl.addEventListener('input', debounce(() => performSearch(), 350));
+    if (searchInputEl) {
+        // Trigger search when Enter is pressed in the input
+        searchInputEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
     }
 
     // Close modal when clicking outside
@@ -997,6 +1073,7 @@ function showPreviewModal(encodedKey, filename, extension) {
         contentEl.appendChild(iframe);
     } else if (textTypes.includes(extension)) {
         dialog.classList.add('preview-compact');
+        
         fetch(`/mbkbucket/view/${encodedKey}`)
             .then(r => r.text())
             .then(text => {
@@ -1223,9 +1300,47 @@ async function createFolder() {
     }
 }
 
-// Start/clear upload buttons
-document.getElementById('startUploadBtn')?.addEventListener('click', startAllUploads);
-document.getElementById('clearQueueBtn')?.addEventListener('click', function () { uploadQueue.length = 0; renderUploadQueue(); });
+// Create new file
+async function createFile() {
+    let name = prompt('Enter new file name:');
+    if (!name) return;
+    
+    name = name.trim();
+    if (!name.includes('.')) {
+        name += '.txt';
+    }
+    
+    // Ensure no leading slashes, we upload to currentPrefix
+    if (name.startsWith('/')) name = name.substring(1);
+    
+    // Check if valid
+    if (!name) return showAlert('Invalid file name', 'error');
+
+    // Create empty file content
+    const file = new File([" "], name, { type: "text/plain" });
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('prefix', currentPrefix);
+    
+    try {
+        const resp = await fetch('/mbkbucket/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const json = await resp.json();
+        if (json.success) {
+            showAlert('File created', 'success');
+            loadFiles(currentPage, currentPrefix);
+        } else {
+            showAlert(json.error || 'Create file failed', 'error');
+        }
+    } catch (err) {
+        showAlert('Create file failed: ' + err.message, 'error');
+    }
+}
+
+
 
 // mbkbucket shared utilities (exposed to global window for backward compatibility)
 (function (w) {

@@ -48,7 +48,7 @@
     background: linear-gradient(135deg, var(--primary-color-ml) 0%, var(--primary-dark-color-ml) 100%);
     color: white;
     border: none;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .stats-content {
@@ -119,6 +119,57 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+/* Upload Drop Zone */
+.upload-drop-zone {
+    border: 2px dashed var(--gray-color-ml);
+    border-radius: var(--border-radius-lg-ml);
+    background-color: #f8fafc;
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-drop-zone:hover,
+.upload-drop-zone.dragover {
+    border-color: var(--primary-color-ml);
+    background-color: #f0fdfa;
+}
+
+.drop-zone-content {
+    pointer-events: none;
+    padding: 2rem;
+}
+
+.drop-zone-content i {
+    font-size: 3rem;
+    color: var(--primary-color-ml);
+    margin-bottom: 1rem;
+    opacity: 0.8;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.upload-drop-zone:hover .drop-zone-content i {
+    opacity: 1;
+}
+
+.drop-text {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--dark-color-ml);
+    margin-bottom: 0.5rem;
+}
+
+.drop-hint {
+    font-size: 0.85rem;
+    color: var(--gray-color-ml);
 }
 
 /* Button styling - Modern hover effects */
@@ -347,64 +398,74 @@
 /* Table styling - Modern clean design */
 .table-responsive {
     overflow-x: auto;
-    box-shadow: inset 0 0 0 1px var(--gray-light-color-ml);
+    border-radius: var(--border-radius-lg-ml);
+    box-shadow: none;
 }
 
 .table {
     width: 100%;
     margin-bottom: 0;
     background: white;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
 .table thead {
-    background: linear-gradient(135deg, var(--dark-color-ml) 0%, #2d3748 100%);
-    color: white;
+    background: var(--light-color-ml);
+    color: var(--dark-color-ml);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .table th,
 .table td {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 1.25rem;
     vertical-align: middle;
     border-bottom: 1px solid var(--gray-light-color-ml);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
 }
 
 .table th {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    font-weight: 700;
+    text-transform: none;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    color: var(--text-muted-color-ml);
+    border-bottom: 2px solid var(--gray-light-color-ml);
 }
 
 .table tbody tr {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     position: relative;
+    background-color: white;
 }
 
 .table tbody tr:hover {
-    background: linear-gradient(90deg, rgba(13, 148, 136, 0.03) 0%, transparent 100%);
+    background-color: var(--light-color-ml);
 }
 
 .file-row {
     border-left: 3px solid transparent;
-    transition: all 0.2s ease;
 }
 
 .file-row:hover {
     border-left-color: var(--primary-color-ml);
-    background: linear-gradient(90deg, rgba(13, 148, 136, 0.05) 0%, transparent 100%);
+    background-color: #f0fdfa;
+    /* Very light teal */
+    z-index: 1;
 }
 
 .folder-row {
     border-left: 3px solid transparent;
-    transition: all 0.2s ease;
     cursor: pointer;
 }
 
 .folder-row:hover {
     border-left-color: #f59e0b;
-    background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%);
+    background-color: #fffbeb;
+    /* Very light amber */
+    z-index: 1;
 }
 
 .folder-row .file-icon {
@@ -414,12 +475,11 @@
 }
 
 .folder-row:hover .file-icon {
-    transform: scale(1.1);
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .breadcrumb-nav {
-    padding: 1rem 1.5rem;
+    padding: 0.5rem 1.5rem;
     background: linear-gradient(135deg, var(--light-color-ml) 0%, #f9fafb 100%);
     border-bottom: 1px solid var(--gray-light-color-ml);
     display: flex;
@@ -459,8 +519,8 @@
 }
 
 .file-icon {
-    width: 52px;
-    height: 52px;
+    width: 40px;
+    height: 40px;
     background: linear-gradient(135deg, var(--primary-light-color-ml) 0%, rgba(13, 148, 136, 0.08) 100%);
     border-radius: 10px;
     display: flex;
@@ -474,7 +534,6 @@
 }
 
 .file-row:hover .file-icon {
-    transform: scale(1.1);
     box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
 }
 
@@ -609,13 +668,19 @@
 }
 
 .empty-state i {
-    font-size: 5rem;
+    font-size: 1.5rem;
     margin-bottom: 1.5rem;
     opacity: 0.3;
     background: linear-gradient(135deg, var(--primary-color-ml), var(--primary-dark-color-ml));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+
+.fa-add:before,
+.fa-plus:before {
+    color: #fff !important;
+    align-items: center;
 }
 
 .empty-state h4 {
@@ -1040,8 +1105,8 @@
 }
 
 .skeleton-row .file-icon {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: 8px;
 }
 
@@ -1195,8 +1260,8 @@
     }
 
     .file-row td:nth-child(2) .file-icon {
-        width: 56px;
-        height: 56px;
+        width: 40px;
+        height: 40px;
         font-size: 1.25rem;
         border-radius: 10px;
     }
@@ -1298,8 +1363,8 @@
 
     /* Make folder icon and name more prominent on mobile */
     .folder-row .file-icon {
-        width: 48px;
-        height: 48px;
+        width: 40px;
+        height: 40px;
         font-size: 1.2rem;
         margin-right: 0.75rem;
     }
@@ -1324,8 +1389,8 @@
     }
 
     .file-icon {
-        width: 48px;
-        height: 48px;
+        width: 40px;
+        height: 40px;
         font-size: 1.2rem;
         margin-right: 0.85rem;
     }
@@ -1355,7 +1420,7 @@
     }
 
     .breadcrumb-nav {
-        padding: 0.85rem 1rem;
+        padding: 0.5rem 1rem;
         font-size: 0.85rem;
     }
 
@@ -1379,7 +1444,7 @@
     }
 
     .empty-state i {
-        font-size: 4rem;
+        font-size: 1.5rem;
     }
 
     .modal-dialog {
@@ -1409,5 +1474,15 @@
 
     .file-stats .stats-text p {
         font-size: 0.85rem;
+    }
+}
+
+.dtm {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .dtm {
+        display: block;
     }
 }

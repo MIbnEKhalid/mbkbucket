@@ -1,4 +1,4 @@
-// Type definitions for mbkbucket 1.1.0
+// Type definitions for mbkbucket 1.2.1
 // Project: https://github.com/MIbnEKhalid/mbkbucket
 // Definitions by: Muhammad Bin Khalid <https://github.com/MIbnEKhalid">
 

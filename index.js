@@ -40,8 +40,21 @@ const generalLimiter = rateLimit({
 server.use(express.json());
 server.use(express.urlencoded({ extended: true }));
 
-// Serve static assets from /public (CSS/JS/images)
-server.use(express.static(path.join(__dirname, 'public'), { maxAge: '365d', etag: true }));
+// Serve only specific static assets (limit exposure): CSS and JS used by the dashboard
+// This replaces serving the entire /public directory.
+const staticMaxAgeSeconds = 90 * 24 * 60 * 60; // 90 days
+server.get('/mbkbucket/bucketadmin.css', (req, res) => {
+  res.set('Cache-Control', `public, max-age=${staticMaxAgeSeconds}, immutable`);
+  res.sendFile(path.join(__dirname, 'public', 'bucketadmin.css'), (err) => {
+    if (err) res.status(err.status || 404).end();
+  });
+});
+server.get('/mbkbucket/bucketadmin.js', (req, res) => {
+  res.set('Cache-Control', `public, max-age=${staticMaxAgeSeconds}, immutable`);
+  res.sendFile(path.join(__dirname, 'public', 'bucketadmin.js'), (err) => {
+    if (err) res.status(err.status || 404).end();
+  });
+});
 
 // Configure Handlebars (single setup)
 server.engine("handlebars", engine({
