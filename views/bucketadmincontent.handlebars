@@ -40,15 +40,18 @@
   <!-- Upload Form -->
   <div class="col-lg-12">
     <div class="dashboard-card h-100">
-      <div class="card-header">
+      <div class="card-header upload-card-header" id="uploadToggleBtn">
         <h5 class="card-title">
           <div class="card-icon">
             <i class="fas fa-upload"></i>
           </div>
           Upload File
         </h5>
+        <button type="button" class="collapse-btn">
+          <i class="fas fa-chevron-down"></i>
+        </button>
       </div>
-      <div class="card-body">
+      <div class="card-body collapsible-content" id="uploadSection">
         <form id="uploadForm" action="/mbkbucket/upload" method="post" enctype="multipart/form-data">
           <input type="hidden" name="prefix" value="{{prefix}}">
 
@@ -103,7 +106,7 @@
 
 <!-- File List -->
 <div class="dashboard-card">
-  <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+  <div class="card-header file-list-header">
     <h5 class="card-title">
       <div>
         <i class="fas fa-folder-open"></i>
@@ -112,7 +115,7 @@
     </h5>
 
     <!-- Inline Search (moved from separate card) -->
-    <div class="search-inline" style="flex:1; max-width:640px; display:flex; gap:0.5rem; align-items:center; justify-content:center;">
+    <div class="search-inline">
       <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search files and folders..." aria-label="Search files">
       <button type="button" class="btn btn-sm btn-primary" onclick="performSearch()" aria-label="Search"><i class="fas fa-search"></i></button>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSearch()" aria-label="Clear search"><i class="fas fa-times"></i></button>
@@ -128,10 +131,10 @@
     </div>
 
     <div class="btn-group" role="group" aria-label="View Mode">
-      <button type="button" class="btn btn-sm btn-light view-toggle-btn active" id="viewBtnFolder" onclick="changeViewMode('folder')" title="Folder View" style="border-top-right-radius: 0; border-bottom-right-radius: 0;">
+      <button type="button" class="btn btn-sm btn-light view-toggle-btn view-btn-left active" id="viewBtnFolder" onclick="changeViewMode('folder')" title="Folder View">
         <i class="fas fa-folder"></i> Folders
       </button>
-      <button type="button" class="btn btn-sm btn-outline-light view-toggle-btn" id="viewBtnFlat" onclick="changeViewMode('flat')" title="Flat List (All Files)" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
+      <button type="button" class="btn btn-sm btn-outline-light view-toggle-btn view-btn-right" id="viewBtnFlat" onclick="changeViewMode('flat')" title="Flat List (All Files)">
         <i class="fas fa-list-ul"></i> Flat View
       </button>
     </div>
@@ -146,8 +149,7 @@
     </div>
 
     <!-- Pagination -->
-    <div id="paginationContainer"
-      style="display: none; padding: 1rem; border-top: 1px solid var(--gray-light-color-ml); background: var(--light-color-ml);">
+    <div id="paginationContainer" class="pagination-container">
       <nav aria-label="File pagination">
         <ul class="pagination" id="paginationList">
         </ul>
@@ -171,10 +173,10 @@
       <div class="modal-body">
         <i class="fas fa-trash-alt fa-3x"></i>
         <h6>Are you sure you want to delete this file?</h6>
-        <p style="color: var(--gray-color-ml); margin-bottom: 0;">
+        <p class="modal-body-text-style">
           <strong id="deleteFileName" style="color: var(--dark-color-ml);"></strong>
         </p>
-        <p style="color: var(--gray-color-ml); margin-top: 0.5rem; margin-bottom: 0;">
+        <p class="modal-body-text-top">
           <small>This action cannot be undone.</small>
         </p>
       </div>
@@ -214,7 +216,7 @@
         <div class="preview-content" id="previewContent" aria-live="polite">
           <div class="empty-preview">
             <i class="fas fa-spinner fa-spin"></i>
-            <div style="margin-top:0.5rem; color:var(--gray-color-ml);">Loading preview...</div>
+            <div class="modal-header-spacing">Loading preview...</div>
           </div>
         </div>
       </div>
@@ -232,6 +234,6 @@
 </div>
 
 <!-- Toast Container -->
-<div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050; display: flex; flex-direction: column; gap: 10px;"></div>
+<div id="toast-container" class="toast-container"></div>
 
 <script src="/mbkbucket/bucketadmin.js?v={{assetVersion}}"></script>

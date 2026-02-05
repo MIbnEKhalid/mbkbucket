@@ -7,6 +7,7 @@ let currentOrder = 'asc';
 let currentViewMode = 'folder'; // 'folder' or 'flat'
 let pageFiles = [];
 let pageFolders = [];
+let currentNextToken = null;
 const bucketAppName = document.getElementById('bucketAppData')?.dataset.appName || '';
 // Bucket is configured centrally on the server; client should not select a bucket.
 
@@ -70,7 +71,7 @@ function showAlert(message, type = 'success') {
 }
 
 // Fetch and render files
-async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort, order = currentOrder) {
+async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort, order = currentOrder, token = '') {
     currentPage = page;
     currentPrefix = prefix;
     currentSearch = search;
@@ -109,19 +110,13 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
           <div class="skeleton-box s-40"></div>
           <div class="skeleton-box s-200"></div>
           <div class="skeleton-box s-80"></div>
-          <div class="skeleton-box s-80"></div>
+          <div class="skeleton-box s-200"></div>
         </div>
         <div class="skeleton-row">
           <div class="skeleton-box s-40"></div>
           <div class="skeleton-box s-200"></div>
           <div class="skeleton-box s-80"></div>
-          <div class="skeleton-box s-80"></div>
-        </div>
-        <div class="skeleton-row">
-          <div class="skeleton-box s-40"></div>
           <div class="skeleton-box s-200"></div>
-          <div class="skeleton-box s-80"></div>
-          <div class="skeleton-box s-80"></div>
         </div>
       </div>
     `;
@@ -129,15 +124,28 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
     try {
         const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
         const sortParam = `&sort=${sort}&order=${order}`;
-        const response = await fetch(`/mbkbucket/api/files?page=${page}&prefix=${encodeURIComponent(prefix)}${searchParam}${sortParam}`);
+        
+        // Determine recursive mode
+        const isFolderMode = currentViewMode === 'folder';
+        const recursiveParam = `&recursive=${!isFolderMode}`; // false if folder mode, true if flat mode
+        const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+
+        const response = await fetch(`/mbkbucket/api/files?page=${page}&prefix=${encodeURIComponent(prefix)}${searchParam}${sortParam}${recursiveParam}${tokenParam}`);
         const data = await response.json();
 
         if (!data.success) {
             throw new Error(data.error || 'Failed to load files');
         }
+        
+        // Store next token
+        currentNextToken = data.nextContinuationToken || null;
 
         // Update stats
-        totalFilesCount.textContent = `${data.totalFiles} ${search ? 'Results' : 'Files'}`;
+        if (data.totalFiles === -1) {
+             totalFilesCount.textContent = `${(data.files.length + (data.folders ? data.folders.length : 0))}${data.hasNextPage ? '+' : ''} Items`;
+        } else {
+             totalFilesCount.textContent = `${data.totalFiles} ${search ? 'Results' : 'Files'}`;
+        }
 
         if (search) {
             filterInfo.textContent = `Search results for: "${search}"`;
@@ -149,7 +157,9 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         }
 
         // Render files or empty state
-        if (data.files.length === 0 && !prefix) {
+        const hasContent = (data.files && data.files.length > 0) || (data.folders && data.folders.length > 0);
+
+        if (!hasContent && !prefix && !search) {
             container.innerHTML = `
           <div class="empty-state">
             <i class="fas fa-folder-open"></i>
@@ -163,11 +173,13 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
             paginationContainer.style.display = 'none';
         } else {
             // Store for client-side sorting and view switching
-            pageFiles = data.files;
+            pageFiles = data.files || [];
 
-            // Only calculate folders if we are in search or folder mode (for potential future switching)
-            // But mainly we rely on currentViewMode in the render function
-            pageFolders = search ? [] : extractFoldersAtCurrentLevel(data.files, prefix);
+            if (data.mode === 'optimized') {
+                 pageFolders = data.folders || [];
+            } else {
+                 pageFolders = search ? [] : extractFoldersAtCurrentLevel(data.files, prefix);
+            }
 
             renderFilesTable(pageFiles, pageFolders, prefix);
             renderPagination(data);
@@ -400,7 +412,10 @@ function renderFilesTable(files, folders = [], prefix = '') {
 
     // Generate folder rows (only used in folder mode)
     const folderRows = displayFolders.map(folderPath => {
-        const folderName = folderPath.split('/').pop();
+        // Handle folder paths which typically end in a slash (e.g., "folder/subfolder/")
+        const cleanPath = folderPath.replace(/\/+$/, ''); 
+        const folderName = cleanPath.split('/').pop();
+        
         return `
         <tr class="folder-row" onclick="loadFiles(1, '${folderPath}')" title="Open folder: ${folderName}">
           <td style="text-align:center;">
@@ -453,10 +468,10 @@ function renderFilesTable(files, folders = [], prefix = '') {
             folderPath = fullPath.substring(0, lastSlashIndex + 1); // include trailing slash
         }
 
-        const iconClass = getFileIcon(filename);
-        const typeCategory = getFileTypeCategory(filename);
-        const truncatedName = truncateFileName(filename);
-        const isFileViewable = isViewable(filename);
+        const iconClass = window.getFileIcon ? window.getFileIcon(filename) : 'fas fa-file';
+        const typeCategory = window.getFileTypeCategory ? window.getFileTypeCategory(filename) : '';
+        const truncatedName = (window.truncateFileName ? window.truncateFileName(filename) : filename) || filename;
+        const isFileViewable = window.isViewable ? window.isViewable(filename) : false;
 
         // If in flat mode, we might want to show the folder path more prominently
         const pathDisplay = (currentViewMode === 'flat' && folderPath && folderPath !== prefix + (prefix ? '/' : ''))
@@ -492,6 +507,9 @@ function renderFilesTable(files, folders = [], prefix = '') {
               <button type="button" class="btn btn-primary btn-sm view-btn" data-key="${file.Key}" data-filename="${file.Key}"
                 data-key-enc="${encodedKey}" title="${isFileViewable ? 'View file in browser' : 'File type not supported for viewing'}" ${!isFileViewable ? 'disabled style="opacity:0.5"' : ''}>
                 <i class="fas fa-eye"></i>
+              </button>
+              <button type="button" class="btn btn-info btn-sm copy-btn" data-key-enc="${encodedKey}" title="Copy Link" style="color:white;">
+                <i class="fas fa-link"></i>
               </button>
               <a href="/mbkbucket/download/${encodedKey}" class="btn btn-success btn-sm"
                 title="Download file">
@@ -587,63 +605,137 @@ function renderFilesTable(files, folders = [], prefix = '') {
 
 // Render pagination
 function renderPagination(data) {
-    const { currentPage, totalPages, hasPrevPage, hasNextPage } = data;
+    const { currentPage, totalPages, hasPrevPage, hasNextPage, mode } = data;
 
     let paginationHTML = '';
 
-    // Previous button
-    if (hasPrevPage) {
-        paginationHTML += `
-        <li class="page-item">
-          <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage - 1}, '${currentPrefix}', '${currentSearch}')">
-            <i class="fas fa-chevron-left"></i> Previous
-          </a>
-        </li>
-      `;
-    } else {
+    if (mode === 'optimized') {
+        // Optimized Mode: Token-based pagination (Next only, limited Prev)
+        
+        // Previous button (Disabled for now as we don't track history stack of tokens)
         paginationHTML += `
         <li class="page-item disabled">
-          <span class="page-link">
+          <span class="page-link" title="Previous page not supported in optimized view">
             <i class="fas fa-chevron-left"></i> Previous
           </span>
         </li>
       `;
-    }
-
-    // Page numbers
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === currentPage) {
-            paginationHTML += `
+      
+      // Current Page Indicator
+      paginationHTML += `
           <li class="page-item active">
-            <span class="page-link">${i}</span>
+            <span class="page-link">${currentPage}</span>
+          </li>
+      `;
+
+      // Next button
+      if (hasNextPage) {
+          // Quote the token correctly
+          const tokenStr = currentNextToken ? currentNextToken.replace(/'/g, "\\'") : "";
+          paginationHTML += `
+          <li class="page-item">
+            <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage + 1}, '${currentPrefix}', '${currentSearch}', '${currentSort}', '${currentOrder}', '${tokenStr}')">
+              Next <i class="fas fa-chevron-right"></i>
+            </a>
           </li>
         `;
+      } else {
+          paginationHTML += `
+          <li class="page-item disabled">
+            <span class="page-link">
+              Next <i class="fas fa-chevron-right"></i>
+            </span>
+          </li>
+        `;
+      }
+
+    } else {
+        // Legacy Mode: Numbered pagination
+        
+        // Previous button
+        if (hasPrevPage) {
+            paginationHTML += `
+            <li class="page-item">
+              <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage - 1}, '${currentPrefix}', '${currentSearch}')">
+                <i class="fas fa-chevron-left"></i> Previous
+              </a>
+            </li>
+          `;
         } else {
             paginationHTML += `
-          <li class="page-item">
-            <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${i}, '${currentPrefix}', '${currentSearch}')">${i}</a>
-          </li>
-        `;
+            <li class="page-item disabled">
+              <span class="page-link">
+                <i class="fas fa-chevron-left"></i> Previous
+              </span>
+            </li>
+          `;
         }
-    }
 
-    // Next button
-    if (hasNextPage) {
-        paginationHTML += `
-        <li class="page-item">
-          <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage + 1}, '${currentPrefix}', '${currentSearch}')">
-            Next <i class="fas fa-chevron-right"></i>
-          </a>
-        </li>
-      `;
-    } else {
-        paginationHTML += `
-        <li class="page-item disabled">
-          <span class="page-link">
-            Next <i class="fas fa-chevron-right"></i>
-          </span>
-        </li>
-      `;
+        // Smart Page Numbers (limit visible pages)
+        const maxPagesToShow = 7;
+        let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+        let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+        
+        if (endPage - startPage + 1 < maxPagesToShow) {
+            startPage = Math.max(1, endPage - maxPagesToShow + 1);
+        }
+
+        // First page
+        if (startPage > 1) {
+             paginationHTML += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(1, '${currentPrefix}', '${currentSearch}')">1</a>
+            </li>`;
+            if (startPage > 2) {
+                 paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            if (i === currentPage) {
+                paginationHTML += `
+              <li class="page-item active">
+                <span class="page-link">${i}</span>
+              </li>
+            `;
+            } else {
+                paginationHTML += `
+              <li class="page-item">
+                <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${i}, '${currentPrefix}', '${currentSearch}')">${i}</a>
+              </li>
+            `;
+            }
+        }
+        
+        // Last page
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                 paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+            paginationHTML += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${totalPages}, '${currentPrefix}', '${currentSearch}')">${totalPages}</a>
+            </li>`;
+        }
+
+        // Next button
+        if (hasNextPage) {
+            paginationHTML += `
+            <li class="page-item">
+              <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage + 1}, '${currentPrefix}', '${currentSearch}')">
+                Next <i class="fas fa-chevron-right"></i>
+              </a>
+            </li>
+          `;
+        } else {
+            paginationHTML += `
+            <li class="page-item disabled">
+              <span class="page-link">
+                Next <i class="fas fa-chevron-right"></i>
+              </span>
+            </li>
+          `;
+        }
     }
 
     document.getElementById('paginationList').innerHTML = paginationHTML;
@@ -915,8 +1007,33 @@ document.getElementById('clearQueueBtn')?.addEventListener('click', function () 
 
 
 
+// Initialize upload section collapse functionality
+function initializeUploadCollapse() {
+    const toggleBtn = document.getElementById('uploadToggleBtn');
+    const uploadSection = document.getElementById('uploadSection');
+    
+    if (!toggleBtn || !uploadSection) return;
+    
+    toggleBtn.addEventListener('click', function() {
+        const isExpanded = uploadSection.classList.contains('expanded');
+        
+        if (isExpanded) {
+            // Collapse
+            uploadSection.classList.remove('expanded');
+            toggleBtn.classList.remove('expanded');
+        } else {
+            // Expand
+            uploadSection.classList.add('expanded');
+            toggleBtn.classList.add('expanded');
+        }
+    });
+}
+
 // Add hover effects and animations
 document.addEventListener('DOMContentLoaded', function () {
+    // Initialize collapsible upload section
+    initializeUploadCollapse();
+    
     // Load initial files (support both legacy 'prefix' and new 'folder' query param)
     const urlParams = new URLSearchParams(window.location.search);
     const initialPrefix = urlParams.get('folder') || urlParams.get('prefix') || bucketAppName || '';

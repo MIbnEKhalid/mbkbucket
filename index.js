@@ -49,6 +49,7 @@ server.get('/mbkbucket/bucketadmin.css', (req, res) => {
     if (err) res.status(err.status || 404).end();
   });
 });
+
 server.get('/mbkbucket/bucketadmin.js', (req, res) => {
   res.set('Cache-Control', `public, max-age=${staticMaxAgeSeconds}, immutable`);
   res.sendFile(path.join(__dirname, 'public', 'bucketadmin.js'), (err) => {

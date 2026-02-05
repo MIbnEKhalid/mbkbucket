@@ -1,6 +1,6 @@
 {
   "name": "mbkbucket",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "S3 Bucket manager for mbktech.org apps",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
