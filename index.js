@@ -2,11 +2,11 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
-import mbkauthe from "mbkauthe";
+import mbkautheRoutes from "mbkauthe";
 import { engine } from "express-handlebars";
 import compression from "compression";
 import rateLimit from 'express-rate-limit';
-import bucket from "./lib/bucket.js";
+import bucketRoutes from "./lib/bucket.js";
 import { checkVersion } from "./lib/config/index.js";
 import { appVersion } from "./lib/config/index.js";
 
@@ -71,83 +71,8 @@ server.engine("handlebars", engine({
   ],
   cache: process.env.NODE_ENV === "production",
   helpers: {
-    formatDate: (date) => {
-      return new Date(date).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      });
-    },
-    in: function (value, list) {
-      if (!list || !Array.isArray(list)) return false;
-      return list.includes(parseInt(value) || value);
-    },
-    trim: function (str) {
-      return str ? str.trim() : '';
-    },
     eq: function (a, b) {
       return a === b;
-    },
-    encodeURIComponent: function (str) {
-      return encodeURIComponent(str);
-    },
-    formatTimestamp: function (timestamp) {
-      return new Date(timestamp).toLocaleString();
-    },
-    jsonStringify: function (context) {
-      return JSON.stringify(context);
-    },
-    truncate: (str, len) => {
-      if (!str) return '';
-      if (str.length > len) {
-        return str.substring(0, len) + '...';
-      }
-      return str;
-    },
-    section: function (name, options) {
-      if (!this._sections) this._sections = {};
-      this._sections[name] = options.fn(this);
-      return null;
-    },
-    getCanonicalUrl: function (req, path) {
-      const protocol = req.protocol || 'https';
-      const host = req.get('host') || 'blog.mbktechstudio.com';
-      return `${protocol}://${host}${path}`;
-    },
-    index: function (array, idx) {
-      return array ? array[idx] : null;
-    },
-    add: function (a, b) {
-      return Number(a) + Number(b);
-    },
-    subtract: function (a, b) {
-      return Number(a) - Number(b);
-    },
-    gt: function (a, b) {
-      return Number(a) > Number(b);
-    },
-    gte: function (a, b) {
-      return Number(a) >= Number(b);
-    },
-    lte: function (a, b) {
-      return Number(a) <= Number(b);
-    },
-    and: function () {
-      return Array.prototype.slice.call(arguments, 0, -1).every(Boolean);
-    },
-    or: function () {
-      return Array.prototype.slice.call(arguments, 0, -1).some(Boolean);
-    },
-    range: function (start, end) {
-      const result = [];
-      for (let i = start; i < end; i++) {
-        result.push(i);
-      }
-      return result;
     }
   }
 }));
@@ -159,9 +84,9 @@ server.set("views", [
   path.join(__dirname, "../mbkauthe/views")
 ]);
 
-server.use(mbkauthe);
+server.use(mbkautheRoutes);
 server.use(generalLimiter);
-server.use(bucket);
+server.use(bucketRoutes);
 
 if (process.env.mbkbucket_test === "dev") {
 

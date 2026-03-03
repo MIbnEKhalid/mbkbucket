@@ -1,4 +1,4 @@
-// Type definitions for mbkbucket 1.2.1
+// Type definitions for mbkbucket 1.4.0
 // Project: https://github.com/MIbnEKhalid/mbkbucket
 // Definitions by: Muhammad Bin Khalid <https://github.com/MIbnEKhalid">
 
@@ -35,7 +35,7 @@ export function getAppName(): string;
 export function ensureKeyHasAppPrefix(key?: string): string;
 export function ensurePrefix(prefix?: string): string;
 export function getBucketClient(bucketName?: string): any;
-export function checkR2Health(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
+export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
 
 export function uploadFile(
   key: string,
@@ -121,6 +121,44 @@ export function generateSignedUrl(
 }>;
 
 /**
+ * S3 Multipart Upload Functions
+ */
+export function createMultipartUpload(
+  key: string,
+  contentType?: string,
+  metadata?: Record<string, string>
+): Promise<{ uploadId: string; key: string }>;
+
+export function uploadPart(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  buffer: Buffer | Uint8Array
+): Promise<{ ETag: string; partNumber: number }>;
+
+export function completeMultipartUpload(
+  key: string,
+  uploadId: string,
+  parts: Array<{ partNumber: number; ETag: string }>
+): Promise<{ key: string }>;
+
+export function abortMultipartUpload(
+  key: string,
+  uploadId: string
+): Promise<{ key: string; abortedAt: string }>;
+
+/**
+ * Configuration variables from mbkbucket
+ */
+export interface ConfigVars {
+  publiView_enabled: boolean;
+  p_view_inline: boolean;
+  [key: string]: any;
+}
+
+export const mbkbucketVar: ConfigVars;
+
+/**
  * Exported router from `lib/bucket` (re-exported at package root as `bucket`)
  */
 export const bucket: Router;
@@ -161,7 +199,7 @@ declare module "mbkbucket/lib/s3" {
   export function ensureKeyHasAppPrefix(key?: string): string;
   export function ensurePrefix(prefix?: string): string;
   export function getBucketClient(bucketName?: string): any;
-  export function checkR2Health(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
+  export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
   export function uploadFile(
     key: string,
     fileBuffer: Buffer | Uint8Array,
@@ -237,11 +275,37 @@ declare module "mbkbucket/lib/s3" {
     expiresAt: string;
     generatedAt: string;
   }>;
+  export function createMultipartUpload(
+    key: string,
+    contentType?: string,
+    metadata?: Record<string, string>
+  ): Promise<{ uploadId: string; key: string }>;
+  export function uploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    buffer: Buffer | Uint8Array
+  ): Promise<{ ETag: string; partNumber: number }>;
+  export function completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: Array<{ partNumber: number; ETag: string }>
+  ): Promise<{ key: string }>;
+  export function abortMultipartUpload(
+    key: string,
+    uploadId: string
+  ): Promise<{ key: string; abortedAt: string }>;
 }
 
 declare module "mbkbucket/lib/config/index" {
+  export interface ConfigVars {
+    publiView_enabled: boolean;
+    p_view_inline: boolean;
+    [key: string]: any;
+  }
   export const packageJson: Record<string, any>;
   export const appVersion: string;
+  export const mbkbucketVar: ConfigVars;
   export function getLatestVersion(): Promise<string | null>;
   export function checkVersion(): Promise<void>;
 }

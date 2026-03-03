@@ -347,6 +347,9 @@ function renderFilesTable(files, folders = [], prefix = '') {
             // 1. Show files where FILENAME matches the search term
             const searchLower = currentSearch.toLowerCase();
             displayFiles = files.filter(f => {
+                // Skip folder marker objects (keys ending with /)
+                if (f.Key.endsWith('/')) return false;
+                
                 const fileName = f.Key.split('/').pop();
                 return fileName.toLowerCase().includes(searchLower);
             });
@@ -355,13 +358,17 @@ function renderFilesTable(files, folders = [], prefix = '') {
             displayFolders = extractMatchingFolders(files, currentSearch);
         } else {
             // Normal Flat Mode: Show all files, no folders
-            displayFiles = files;
+            // Filter out folder marker objects (keys ending with /)
+            displayFiles = files.filter(f => !f.Key.endsWith('/'));
             displayFolders = [];
         }
     } else {
         // Normal Folder View logic
         // Filter files to show only those at current level (not in subfolders)
         displayFiles = files.filter(file => {
+            // Skip folder marker objects (keys ending with /)
+            if (file.Key.endsWith('/')) return false;
+            
             const relativePath = prefix ? file.Key.substring(prefix.length + (prefix.endsWith('/') ? 0 : 1)) : file.Key;
             // File is at current level if it has no '/' in relative path
             return !relativePath.includes('/');
@@ -823,7 +830,7 @@ function createId() { return Date.now().toString(36) + '-' + Math.random().toStr
 
 function addFilesToQueue(fileList) {
     for (const f of Array.from(fileList)) {
-        uploadQueue.push({ id: createId(), file: f, status: 'queued', progress: 0 });
+        uploadQueue.push({ id: createId(), file: f, status: 'queued', progress: 0, uploadedBytes: 0, uploadRate: 0 });
     }
     renderUploadQueue();
 }
@@ -839,7 +846,27 @@ function renderUploadQueue() {
         return;
     }
 
-    container.innerHTML = uploadQueue.map(item => `
+    // Local size formatter so it's always in scope regardless of IIFE load order
+    function fmtSize(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    }
+
+    container.innerHTML = uploadQueue.map(item => {
+        let statusText;
+        if (item.status === 'uploading') {
+            const pct = Math.round(item.progress || 0);
+            statusText = fmtSize(item.uploadedBytes || 0) + ' / ' + fmtSize(item.file.size) + ' (' + pct + '%)';
+            if (item.uploadRate > 0) statusText += ' \u00b7 ' + fmtSize(item.uploadRate) + '/s';
+        } else {
+            statusText = item.status;
+        }
+        const actionBtn = item.status === 'uploading'
+            ? `<button class="btn btn-sm btn-outline-secondary cancel-upload" data-id="${item.id}"><i class="fas fa-ban"></i></button>`
+            : `<button class="btn btn-sm btn-danger remove-queued" data-id="${item.id}"><i class="fas fa-trash"></i></button>`;
+        return `
       <div class="upload-item" data-id="${item.id}">
         <div class="meta">
           <div style="display:flex; align-items:center; gap:0.75rem; min-width:0; width:100%; margin-bottom:5px;">
@@ -853,14 +880,12 @@ function renderUploadQueue() {
             <div class="progress-bar" style="width: ${Math.round(item.progress)}%; height: 8px;"></div>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
-            <small class="text-muted status">${item.status}</small>
-            <div class="controls">
-              ${item.status === 'uploading' ? `<button class="btn btn-sm btn-outline-secondary cancel-upload" data-id="${item.id}"><i class="fas fa-ban"></i></button>` : `<button class="btn btn-sm btn-danger remove-queued" data-id="${item.id}"><i class="fas fa-trash"></i></button>`}
-            </div>
+            <small class="text-muted status">${statusText}</small>
+            <div class="controls">${actionBtn}</div>
           </div>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
     // Wire up controls
     document.querySelectorAll('.remove-queued').forEach(btn => btn.addEventListener('click', function (e) {
@@ -870,15 +895,27 @@ function renderUploadQueue() {
         renderUploadQueue();
     }));
 
-    document.querySelectorAll('.cancel-upload').forEach(btn => btn.addEventListener('click', function (e) {
+    document.querySelectorAll('.cancel-upload').forEach(btn => btn.addEventListener('click', async function (e) {
         const id = this.dataset.id;
         const handle = xhrMap.get(id);
-        if (handle && handle.abort) {
-            handle.abort();
-        } else if (handle && handle.xhr) {
-            handle.xhr.abort();
-        }
         const entry = uploadQueue.find(i => i.id === id);
+
+        // Abort in-flight fetch
+        if (handle && handle.controller) handle.controller.abort();
+        // Abort legacy XHR (small file path)
+        if (handle && handle.xhr) handle.xhr.abort();
+
+        // Tell S3 to discard the incomplete multipart upload
+        if (entry && entry.s3UploadId && entry.s3Key) {
+            try {
+                await fetch('/mbkbucket/upload-abort', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uploadId: entry.s3UploadId, key: entry.s3Key })
+                });
+            } catch (_) { /* best-effort */ }
+        }
+
         if (entry) { entry.status = 'cancelled'; entry.progress = 0; }
         xhrMap.delete(id);
         renderUploadQueue();
@@ -913,41 +950,90 @@ async function startUploadEntry(entry) {
     const file = entry.file;
     try {
         if (file.size > CHUNK_SIZE) {
-            // chunked upload
-            const uploadId = createId();
-            entry.uploadId = uploadId;
+            // ---------------------------------------------------------------
+            // S3 Multipart Upload
+            // Step 1 — Initiate: get uploadId + key from the server
+            // ---------------------------------------------------------------
+            const initResp = await fetch('/mbkbucket/upload-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    prefix: currentPrefix,
+                    contentType: file.type || 'application/octet-stream'
+                })
+            });
+            const initJson = await initResp.json();
+            if (!initResp.ok || !initJson.success) throw new Error(initJson.error || 'Failed to initiate upload');
+
+            const { uploadId, key } = initJson;
+            entry.s3UploadId = uploadId;  // stored so cancel handler can abort
+            entry.s3Key = key;
+
+            // ---------------------------------------------------------------
+            // Step 2 — Upload parts (1-based partNumber, min 5 MB except last)
+            // ---------------------------------------------------------------
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            const parts = []; // [{ partNumber, ETag }]
             let uploadedBytes = 0;
+
             for (let i = 0; i < totalChunks; i++) {
-                if (entry.status === 'cancelled') throw new Error('Upload cancelled');
+                const _chunkStart = Date.now();
+                if (entry.status === 'cancelled') {
+                    // Clean up on S3
+                    await fetch('/mbkbucket/upload-abort', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ uploadId, key })
+                    }).catch(() => {});
+                    throw new Error('Upload cancelled');
+                }
+
                 const start = i * CHUNK_SIZE;
-                const end = Math.min(file.size, start + CHUNK_SIZE);
-                const blob = file.slice(start, end);
+                const blob = file.slice(start, Math.min(file.size, start + CHUNK_SIZE));
+                const partNumber = i + 1; // S3 parts are 1-based
 
                 const fd = new FormData();
                 fd.append('chunk', blob, file.name);
                 fd.append('uploadId', uploadId);
-                fd.append('fileName', file.name);
-                fd.append('chunkIndex', String(i));
-                fd.append('totalChunks', String(totalChunks));
+                fd.append('key', key);
+                fd.append('partNumber', String(partNumber));
 
                 const controller = new AbortController();
-                xhrMap.set(entry.id, { controller });
+                xhrMap.set(entry.id, { controller, s3UploadId: uploadId, s3Key: key });
 
-                const resp = await fetch('/mbkbucket/upload-chunk', { method: 'POST', body: fd, signal: controller.signal });
-                if (!resp.ok) throw new Error('Chunk upload failed');
+                const chunkResp = await fetch('/mbkbucket/upload-chunk', {
+                    method: 'POST',
+                    body: fd,
+                    signal: controller.signal
+                });
+                const chunkJson = await chunkResp.json();
+                if (!chunkResp.ok || !chunkJson.success) throw new Error(chunkJson.error || `Part ${partNumber} upload failed`);
+
+                parts.push({ partNumber: chunkJson.partNumber, ETag: chunkJson.ETag });
                 uploadedBytes += blob.size;
-                entry.progress = (uploadedBytes / file.size) * 95; // up to 95% until assembly
+                const _chunkDuration = (Date.now() - _chunkStart) / 1000;
+                entry.uploadRate = _chunkDuration > 0 ? blob.size / _chunkDuration : 0;
+                entry.uploadedBytes = uploadedBytes;
+                entry.progress = (uploadedBytes / file.size) * 95; // reserve last 5% for complete call
                 renderUploadQueue();
             }
 
-            // complete
-            const completeResp = await fetch('/mbkbucket/upload-complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uploadId: entry.uploadId, fileName: file.name, prefix: currentPrefix, contentType: file.type || 'application/octet-stream' }) });
+            // ---------------------------------------------------------------
+            // Step 3 — Complete: assemble all parts on S3
+            // ---------------------------------------------------------------
+            const completeResp = await fetch('/mbkbucket/upload-complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uploadId, key, parts })
+            });
             const completeJson = await completeResp.json();
-            if (!completeResp.ok || !completeJson.success) throw new Error(completeJson.error || 'Assemble failed');
+            if (!completeResp.ok || !completeJson.success) throw new Error(completeJson.error || 'Failed to complete upload');
 
-            entry.status = 'done'; entry.progress = 100; xhrMap.delete(entry.id); renderUploadQueue();
-            showAlert('File uploaded successfully', 'success');
+            entry.status = 'done'; entry.progress = 100;
+            xhrMap.delete(entry.id);
+            renderUploadQueue();
+            showAlert(`${file.name} uploaded successfully`, 'success');
             loadFiles(currentPage, currentPrefix);
         } else {
             // small file XHR
@@ -960,9 +1046,20 @@ async function startUploadEntry(entry) {
 
             xhr.upload.addEventListener('progress', (e) => {
                 if (!e.lengthComputable) return;
+                const _now = Date.now();
+                const _dt = (_now - (entry._rateLastTime || _now)) / 1000;
+                const _db = e.loaded - (entry._rateLastBytes || 0);
+                if (_dt > 0.2) {
+                    entry.uploadRate = _db / _dt;
+                    entry._rateLastTime = _now;
+                    entry._rateLastBytes = e.loaded;
+                }
+                entry.uploadedBytes = e.loaded;
                 entry.progress = (e.loaded / e.total) * 100;
                 renderUploadQueue();
             });
+            entry._rateLastTime = Date.now();
+            entry._rateLastBytes = 0;
 
             xhr.addEventListener('load', () => {
                 try {
@@ -990,7 +1087,16 @@ async function startUploadEntry(entry) {
         }
     } catch (err) {
         console.error('Upload failed for', entry.file.name, err);
+        // If a multipart upload was initiated but didn't finish (not a user cancel), abort it on S3
+        if (entry.s3UploadId && entry.s3Key && entry.status !== 'cancelled') {
+            fetch('/mbkbucket/upload-abort', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uploadId: entry.s3UploadId, key: entry.s3Key })
+            }).catch(() => {});
+        }
         entry.status = entry.status === 'cancelled' ? 'cancelled' : 'error';
+        xhrMap.delete(entry.id);
         renderUploadQueue();
         showAlert('Upload failed: ' + (err.message || 'unknown'), 'error');
     }
