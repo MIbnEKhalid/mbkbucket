@@ -8,8 +8,34 @@ let currentViewMode = 'folder'; // 'folder' or 'flat'
 let pageFiles = [];
 let pageFolders = [];
 let currentNextToken = null;
+let currentApiPrefix = '';
 const bucketAppName = document.getElementById('bucketAppData')?.dataset.appName || '';
 // Bucket is configured centrally on the server; client should not select a bucket.
+
+function stripApiPrefixFromPath(path, apiPrefix = '') {
+    const normalizedPath = String(path || '').replace(/^\/+/, '');
+    const normalizedApiPrefix = String(apiPrefix || '').replace(/^\/+/, '').replace(/\/+$/, '');
+
+    if (!normalizedApiPrefix) return normalizedPath;
+    if (normalizedPath === normalizedApiPrefix || normalizedPath === `${normalizedApiPrefix}/`) return '';
+    if (normalizedPath.startsWith(`${normalizedApiPrefix}/`)) {
+        return normalizedPath.slice(normalizedApiPrefix.length + 1);
+    }
+
+    return normalizedPath;
+}
+
+function toApiFolderPath(prefix = '', apiPrefix = '') {
+    const uiPrefix = String(prefix || '').replace(/^\/+/, '');
+    const normalizedApiPrefix = String(apiPrefix || '').replace(/^\/+/, '').replace(/\/+$/, '');
+
+    if (!uiPrefix) return '';
+    if (!normalizedApiPrefix) return uiPrefix;
+    if (uiPrefix === normalizedApiPrefix || uiPrefix.startsWith(`${normalizedApiPrefix}/`)) {
+        return uiPrefix;
+    }
+    return `${normalizedApiPrefix}/${uiPrefix}`;
+}
 
 // Show alert message (Toast)
 function showAlert(message, type = 'success') {
@@ -51,7 +77,7 @@ function showAlert(message, type = 'success') {
     toast.innerHTML = `
         <i class="fas ${isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'}" style="font-size: 1.25rem;"></i>
         <div style="flex: 1;">${message}</div>
-        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:white; cursor:pointer; opacity:0.8; font-size:1.2rem;">&times;</button>
+        <button onclick="this.parentElement.remove()" class="toast-close-btn">&times;</button>
     `;
 
     container.appendChild(toast);
@@ -82,8 +108,9 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
     try {
         const parts = [];
         if (prefix) {
+            const folderPathForUrl = toApiFolderPath(prefix, currentApiPrefix);
             // preserve slashes in folder param for readability: encode then restore slashes
-            const folderEncoded = encodeURIComponent(prefix).replace(/%2F/g, '/');
+            const folderEncoded = encodeURIComponent(folderPathForUrl).replace(/%2F/g, '/');
             parts.push(`folder=${folderEncoded}`);
         }
         if (page && page > 1) parts.push(`page=${page}`);
@@ -139,6 +166,7 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         
         // Store next token
         currentNextToken = data.nextContinuationToken || null;
+        currentApiPrefix = data.prefix || '';
 
         // Update stats
         if (data.totalFiles === -1) {
@@ -151,7 +179,7 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
             filterInfo.textContent = `Search results for: "${search}"`;
             fileListTitle.innerHTML = `Search Results <span class="text-muted">for: </span><span class="badge bg-info">${search}</span>`;
         } else {
-            const label = prefix || bucketAppName || 'Root';
+            const label = prefix || bucketAppName || 'app';
             filterInfo.textContent = `Filtered by folder: ${label}`;
             fileListTitle.innerHTML = `Files <span class="text-muted">in: </span><span class="badge bg-info">${label}</span>`;
         }
@@ -176,12 +204,16 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
             pageFiles = data.files || [];
 
             if (data.mode === 'optimized') {
-                 pageFolders = data.folders || [];
+                  pageFolders = (data.folders || []).map(folder => stripApiPrefixFromPath(folder, currentApiPrefix)).filter(Boolean);
             } else {
-                 pageFolders = search ? [] : extractFoldersAtCurrentLevel(data.files, prefix);
+                pageFolders = search
+                    ? []
+                    : extractFoldersAtCurrentLevel(data.files, currentApiPrefix || prefix)
+                      .map(folder => stripApiPrefixFromPath(folder, currentApiPrefix))
+                      .filter(Boolean);
             }
 
-            renderFilesTable(pageFiles, pageFolders, prefix);
+              renderFilesTable(pageFiles, pageFolders, prefix, currentApiPrefix);
             renderPagination(data);
             paginationContainer.style.display = 'block';
         }
@@ -230,7 +262,7 @@ function toggleSort(field) {
             return 0;
         });
 
-        renderFilesTable(pageFiles, pageFolders, currentPrefix);
+        renderFilesTable(pageFiles, pageFolders, currentPrefix, currentApiPrefix);
     }
 }
 
@@ -299,7 +331,7 @@ function changeViewMode(mode) {
     }
 
     // Re-render with existing data
-    renderFilesTable(pageFiles, pageFolders, currentPrefix);
+    renderFilesTable(pageFiles, pageFolders, currentPrefix, currentApiPrefix);
 }
 
 // Extract folders that match a search query from file paths
@@ -331,7 +363,7 @@ function extractMatchingFolders(files, search) {
 }
 
 // Render files table
-function renderFilesTable(files, folders = [], prefix = '') {
+function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
     // Determine which files/folders to show based on view mode
     let displayFiles = [];
     let displayFolders = [];
@@ -369,7 +401,8 @@ function renderFilesTable(files, folders = [], prefix = '') {
             // Skip folder marker objects (keys ending with /)
             if (file.Key.endsWith('/')) return false;
             
-            const relativePath = prefix ? file.Key.substring(prefix.length + (prefix.endsWith('/') ? 0 : 1)) : file.Key;
+            const basePrefix = apiPrefix || prefix;
+            const relativePath = basePrefix ? file.Key.substring(basePrefix.length + (basePrefix.endsWith('/') ? 0 : 1)) : file.Key;
             // File is at current level if it has no '/' in relative path
             return !relativePath.includes('/');
         });
@@ -386,7 +419,7 @@ function renderFilesTable(files, folders = [], prefix = '') {
         <div class="breadcrumb-nav">
           <div class="breadcrumb-item">
             <i class="fas fa-home"></i>
-            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to root">Root</span>
+            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to ${bucketAppName || 'app'}">${bucketAppName || 'app'}</span>
           </div>
       `;
 
@@ -482,7 +515,7 @@ function renderFilesTable(files, folders = [], prefix = '') {
 
         // If in flat mode, we might want to show the folder path more prominently
         const pathDisplay = (currentViewMode === 'flat' && folderPath && folderPath !== prefix + (prefix ? '/' : ''))
-            ? `<div style="font-size: 0.75rem; color: var(--gray-color-ml); margin-bottom:2px;">
+            ? `<div class="file-path-display">
              <i class="fas fa-folder" style="margin-right:4px; opacity:0.5;"></i> ${folderPath}
            </div>`
             : '';
@@ -535,24 +568,25 @@ function renderFilesTable(files, folders = [], prefix = '') {
 
     if (allRows === '') {
         document.getElementById('fileListContainer').innerHTML = `
+                ${breadcrumb}
         <div class="empty-state">
-          <div style="margin-bottom: 1.5rem; position: relative; display: inline-block;">
+          <div class="empty-state-illustration">
             <i class="fas fa-folder-open" style="font-size: 4rem; color: #cbd5e0;"></i>
-            <i class="fas fa-search" style="font-size: 2rem; color: var(--primary-color-ml); position: absolute; bottom: -5px; right: -10px; background: white; border-radius: 50%; padding: 5px;"></i>
+            <i class="fas fa-search empty-state-search-icon"></i>
           </div>
           <h4>No files found</h4>
-          <p style="max-width: 400px; margin: 0 auto 1.5rem; color: var(--text-muted-color-ml);">
+          <p class="empty-state-description">
             ${prefix ? `This folder <strong>${prefix}</strong> is currently empty.` : 'Your bucket is empty. Start by uploading files or creating a new folder.'}
           </p>
-          <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap: wrap;">
+          <div class="empty-state-actions">
             <button class="btn btn-primary" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); document.getElementById('fileInput').click()">
               <i class="fas fa-cloud-upload-alt"></i> Upload Files
             </button>
             <button class="btn btn-outline-secondary" onclick="createFolder()">
               <i class="fas fa-folder-plus"></i> New Folder
             </button>
-            ${prefix ? `<button class="btn btn-light" onclick="loadFiles(1, '')">
-              <i class="fas fa-home"></i> Go to Root
+                        ${prefix ? `<button class="btn btn-light" onclick="loadFiles(1, '')">
+                            <i class="fas fa-home"></i> Go to ${bucketAppName || 'app'}
             </button>` : ''}
           </div>
         </div>
@@ -562,16 +596,16 @@ function renderFilesTable(files, folders = [], prefix = '') {
 
     // Sort icon helper
     const getSortIcon = (field) => {
-        if (currentSort !== field) return '<i class="fas fa-sort" style="color:var(--gray-color-ml); opacity:0.3; font-size:0.8rem; margin-left:0.5rem;"></i>';
+        if (currentSort !== field) return '<i class="fas fa-sort sort-icon sort-icon-inactive"></i>';
         return currentOrder === 'asc'
-            ? '<i class="fas fa-sort-up" style="color:var(--primary-color-ml); font-size:0.9rem; margin-left:0.5rem;"></i>'
-            : '<i class="fas fa-sort-down" style="color:var(--primary-color-ml); font-size:0.9rem; margin-left:0.5rem;"></i>';
+            ? '<i class="fas fa-sort-up sort-icon sort-icon-active"></i>'
+            : '<i class="fas fa-sort-down sort-icon sort-icon-active"></i>';
     };
 
     document.getElementById('fileListContainer').innerHTML = `
       ${breadcrumb}
       <div class="table-responsive">
-        <div id="bulkActionsBar" style="display:none; padding: 0.5rem; border-bottom: 1px solid var(--gray-light-color-ml); background: var(--light-color-ml);">
+        <div id="bulkActionsBar" class="bulk-actions-bar">
           <span id="bulkSelectedCount">0 selected</span>
           <div style="float: right;">
             <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>
@@ -869,17 +903,17 @@ function renderUploadQueue() {
         return `
       <div class="upload-item" data-id="${item.id}">
         <div class="meta">
-          <div style="display:flex; align-items:center; gap:0.75rem; min-width:0; width:100%; margin-bottom:5px;">
+          <div class="upload-item-meta-row">
             <div class="file-icon"><i class="fas fa-file"></i></div>
             <div class="name">${item.file.name}</div>
-            <div class="form-text file-size" style="white-space:nowrap; color:var(--text-muted-color-ml); font-size:0.875rem; margin-left:auto;">${formatFileSize(item.file.size)}</div>
+            <div class="form-text file-size upload-item-size-label">${formatFileSize(item.file.size)}</div>
           </div>
         </div>
         <div style="min-width:220px;">
           <div class="progress-container" style="height: 8px; margin-bottom: 6px;">
             <div class="progress-bar" style="width: ${Math.round(item.progress)}%; height: 8px;"></div>
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+          <div class="upload-item-status-row">
             <small class="text-muted status">${statusText}</small>
             <div class="controls">${actionBtn}</div>
           </div>
@@ -1142,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Load initial files (support both legacy 'prefix' and new 'folder' query param)
     const urlParams = new URLSearchParams(window.location.search);
-    const initialPrefix = urlParams.get('folder') || urlParams.get('prefix') || bucketAppName || '';
+    const initialPrefix = urlParams.get('folder') || urlParams.get('prefix') || '';
     const initialPage = parseInt(urlParams.get('page')) || 1;
     loadFiles(initialPage, initialPrefix);
 
@@ -1185,6 +1219,37 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        const cbtn = e.target.closest('.copy-btn');
+        console.log(cbtn);
+        if (cbtn) {
+            e.stopPropagation();
+            const keyEnc = cbtn.dataset.keyEnc;
+            if (!keyEnc) return;
+            const link = `${window.location.origin}/mbkbucket/view/${keyEnc}`;
+            const fallbackCopy = () => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = link;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    showAlert('Link copied to clipboard!', 'success');
+                } catch {
+                    showAlert('Failed to copy link', 'error');
+                }
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(link).then(() => {
+                    showAlert('Link copied to clipboard!', 'success');
+                }).catch(fallbackCopy);
+            } else {
+                fallbackCopy();
+            }
+            return;
+        }
 
     });
 });
@@ -1209,25 +1274,32 @@ function handleViewFile(key, filename, event) {
     const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
     const videoTypes = ['mp4', 'webm', 'ogg'];
 
-    // Use inline preview modal for supported types
+    // Determine preview mode from extension groups
     const previewableImage = imageTypes.includes(extension);
     const previewableVideo = videoTypes.includes(extension);
     const previewableAudio = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(extension);
     const previewablePdf = extension === 'pdf';
     const previewableText = ['txt', 'md', 'json', 'xml', 'csv', 'log', 'js', 'ts', 'html', 'htm', 'css', 'py', 'java', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'rs', 'sql', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'toml', 'ini', 'conf'].includes(extension);
 
+    let previewMode = 'unsupported';
+    if (previewableImage) previewMode = 'image';
+    else if (previewableVideo) previewMode = 'video';
+    else if (previewableAudio) previewMode = 'audio';
+    else if (previewablePdf) previewMode = 'pdf';
+    else if (previewableText) previewMode = 'text';
+
     // Build an encoded key safely (if key already appears encoded, don't double-encode)
     const encodedKey = (key && key.includes('%')) ? key : encodeURIComponent(key || filename);
 
     // Show the inline preview
-    showPreviewModal(encodedKey, filename, extension);
+    showPreviewModal(encodedKey, filename, extension, previewMode);
     return false;
 }
 
 // Function to get file type category
 
 // Preview modal helpers
-function showPreviewModal(encodedKey, filename, extension) {
+function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto') {
     const modal = document.getElementById('previewModal');
     if (!modal) {
         window.open(`/mbkbucket/view/${encodedKey}`, '_blank', 'noopener,noreferrer');
@@ -1259,9 +1331,17 @@ function showPreviewModal(encodedKey, filename, extension) {
     const videoTypes = ['mp4', 'webm', 'ogg'];
     const audioTypes = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'];
     const textTypes = ['txt', 'md', 'json', 'xml', 'csv', 'log', 'js', 'ts', 'html', 'htm', 'css', 'py', 'java', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'rs', 'sql', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'toml', 'ini', 'conf'];
+    const effectiveMode = previewMode === 'auto'
+        ? (imgTypes.includes(extension) ? 'image'
+            : videoTypes.includes(extension) ? 'video'
+                : audioTypes.includes(extension) ? 'audio'
+                    : extension === 'pdf' ? 'pdf'
+                        : textTypes.includes(extension) ? 'text'
+                            : 'unsupported')
+        : previewMode;
 
     // Render content and adjust dialog size
-    if (imgTypes.includes(extension)) {
+    if (effectiveMode === 'image') {
         dialog.classList.add('preview-compact');
         const img = document.createElement('img');
         img.className = 'preview-img';
@@ -1271,7 +1351,7 @@ function showPreviewModal(encodedKey, filename, extension) {
         img.onerror = () => { contentEl.textContent = 'Could not load preview.'; };
         contentEl.innerHTML = '';
         contentEl.appendChild(img);
-    } else if (videoTypes.includes(extension)) {
+    } else if (effectiveMode === 'video') {
         dialog.classList.add('preview-large');
         const video = document.createElement('video');
         video.className = 'preview-video';
@@ -1279,7 +1359,7 @@ function showPreviewModal(encodedKey, filename, extension) {
         video.src = `/mbkbucket/view/${encodedKey}`;
         contentEl.innerHTML = '';
         contentEl.appendChild(video);
-    } else if (audioTypes.includes(extension)) {
+    } else if (effectiveMode === 'audio') {
         dialog.classList.add('preview-compact');
         const audio = document.createElement('audio');
         audio.className = 'preview-audio';
@@ -1287,14 +1367,14 @@ function showPreviewModal(encodedKey, filename, extension) {
         audio.src = `/mbkbucket/view/${encodedKey}`;
         contentEl.innerHTML = '';
         contentEl.appendChild(audio);
-    } else if (extension === 'pdf') {
+    } else if (effectiveMode === 'pdf') {
         dialog.classList.add('preview-large');
         const iframe = document.createElement('iframe');
         iframe.className = 'preview-iframe';
         iframe.src = `/mbkbucket/view/${encodedKey}`;
         contentEl.innerHTML = '';
         contentEl.appendChild(iframe);
-    } else if (textTypes.includes(extension)) {
+    } else if (effectiveMode === 'text') {
         dialog.classList.add('preview-compact');
         
         fetch(`/mbkbucket/view/${encodedKey}`)

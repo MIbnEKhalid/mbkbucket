@@ -6,7 +6,7 @@ import mbkautheRoutes from "mbkauthe";
 import { engine } from "express-handlebars";
 import compression from "compression";
 import rateLimit from 'express-rate-limit';
-import bucketRoutes from "./lib/bucket.js";
+import bucketRoutes from "./lib/routes/index.js";
 import { checkVersion } from "./lib/config/index.js";
 import { appVersion } from "./lib/config/index.js";
 

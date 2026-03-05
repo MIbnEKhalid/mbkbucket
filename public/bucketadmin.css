@@ -123,6 +123,16 @@
     font-size: 0.9rem;
 }
 
+.stats-bucket-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 0.02em;
+}
+
 /* Form styling - Modern approach */
 .form-control {
     border: 1px solid var(--gray-light-color-ml);
@@ -511,13 +521,14 @@
 }
 
 .folder-row .file-icon {
-    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, rgba(245, 158, 11, 0.15) 100%);
-    color: #f59e0b;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+    background: linear-gradient(160deg, #fff5db 0%, #ffe7b2 100%);
+    color: #b45309;
+    border: 1px solid rgba(180, 83, 9, 0.2);
+    box-shadow: 0 3px 10px rgba(180, 83, 9, 0.14);
 }
 
 .folder-row:hover .file-icon {
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 8px 18px rgba(180, 83, 9, 0.24);
 }
 
 .breadcrumb-nav {
@@ -561,22 +572,28 @@
 }
 
 .file-icon {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, var(--primary-light-color-ml) 0%, rgba(13, 148, 136, 0.08) 100%);
-    border-radius: 10px;
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(160deg, #ecfdf8 0%, #d9f7ef 100%);
+    border: 1px solid rgba(13, 148, 136, 0.18);
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-right: 0.9rem;
-    color: var(--primary-color-ml);
-    font-size: 1.25rem;
+    color: #0f766e;
+    font-size: 1.15rem;
     flex-shrink: 0;
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 3px 10px rgba(13, 148, 136, 0.12);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.file-icon i {
+    transition: transform 0.22s ease;
 }
 
 .file-row:hover .file-icon {
-    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
+    box-shadow: 0 8px 18px rgba(13, 148, 136, 0.2);
 }
 
 .file-info {
@@ -653,53 +670,58 @@
 
 /* File type specific styling - Enhanced gradients */
 .file-icon.image-file {
-    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, rgba(245, 158, 11, 0.15) 100%);
-    color: #f59e0b;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+    background: linear-gradient(160deg, #fff6e3 0%, #ffe7bf 100%);
+    color: #b45309;
+    border-color: rgba(180, 83, 9, 0.22);
+    box-shadow: 0 3px 10px rgba(180, 83, 9, 0.16);
 }
 
 .file-icon.video-file {
-    background: linear-gradient(135deg, #ef4444 0%, #f87171 50%, rgba(239, 68, 68, 0.15) 100%);
-    color: #ef4444;
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+    background: linear-gradient(160deg, #ffe9e7 0%, #ffd1cc 100%);
+    color: #b91c1c;
+    border-color: rgba(185, 28, 28, 0.22);
+    box-shadow: 0 3px 10px rgba(185, 28, 28, 0.16);
 }
 
 .file-icon.audio-file {
-    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 50%, rgba(139, 92, 246, 0.15) 100%);
-    color: #8b5cf6;
-    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
+    background: linear-gradient(160deg, #e6efff 0%, #d6e5ff 100%);
+    color: #1d4ed8;
+    border-color: rgba(29, 78, 216, 0.22);
+    box-shadow: 0 3px 10px rgba(29, 78, 216, 0.16);
 }
 
 .file-icon.document-file {
-    background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 50%, rgba(6, 182, 212, 0.15) 100%);
-    color: #06b6d4;
-    box-shadow: 0 2px 8px rgba(6, 182, 212, 0.15);
+    background: linear-gradient(160deg, #e6faf9 0%, #c8f0ed 100%);
+    color: #0f766e;
+    border-color: rgba(15, 118, 110, 0.22);
+    box-shadow: 0 3px 10px rgba(15, 118, 110, 0.16);
 }
 
 .file-icon.code-file {
-    background: linear-gradient(135deg, #10b981 0%, #34d399 50%, rgba(16, 185, 129, 0.15) 100%);
-    color: #10b981;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+    background: linear-gradient(160deg, #e9fbe9 0%, #d5f4d5 100%);
+    color: #166534;
+    border-color: rgba(22, 101, 52, 0.22);
+    box-shadow: 0 3px 10px rgba(22, 101, 52, 0.16);
 }
 
 .file-row:hover .file-icon.image-file {
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 8px 18px rgba(180, 83, 9, 0.24);
 }
 
 .file-row:hover .file-icon.video-file {
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 8px 18px rgba(185, 28, 28, 0.24);
 }
 
 .file-row:hover .file-icon.audio-file {
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 8px 18px rgba(29, 78, 216, 0.24);
 }
 
 .file-row:hover .file-icon.document-file {
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    box-shadow: 0 8px 18px rgba(15, 118, 110, 0.24);
 }
 
 .file-row:hover .file-icon.code-file {
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 18px rgba(22, 101, 52, 0.24);
 }
 
 /* Empty state - Modern design */
@@ -739,6 +761,96 @@
     margin-right: auto;
     line-height: 1.6;
     color: var(--gray-color-ml);
+}
+
+.empty-state-illustration {
+    margin-bottom: 1.5rem;
+    position: relative;
+    display: inline-block;
+}
+
+.empty-state-search-icon {
+    font-size: 2rem;
+    color: var(--primary-color-ml);
+    position: absolute;
+    bottom: -5px;
+    right: -10px;
+    background: white;
+    border-radius: 50%;
+    padding: 5px;
+}
+
+.empty-state-description {
+    max-width: 400px;
+    margin: 0 auto 1.5rem;
+    color: var(--text-muted-color-ml);
+}
+
+.empty-state-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.file-path-display {
+    font-size: 0.75rem;
+    color: var(--gray-color-ml);
+    margin-bottom: 2px;
+}
+
+.sort-icon {
+    margin-left: 0.5rem;
+}
+
+.sort-icon-inactive {
+    color: var(--gray-color-ml);
+    opacity: 0.3;
+    font-size: 0.8rem;
+}
+
+.sort-icon-active {
+    color: var(--primary-color-ml);
+    font-size: 0.9rem;
+}
+
+.bulk-actions-bar {
+    display: none;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--gray-light-color-ml);
+    background: var(--light-color-ml);
+}
+
+.toast-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    opacity: 0.8;
+    font-size: 1.2rem;
+}
+
+.upload-item-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.upload-item-size-label {
+    white-space: nowrap;
+    color: var(--text-muted-color-ml);
+    font-size: 0.875rem;
+    margin-left: auto;
+}
+
+.upload-item-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 /* Modal styling - Modern design */

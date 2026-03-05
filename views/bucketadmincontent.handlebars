@@ -13,7 +13,7 @@
         <p id="filterInfo">Loading file information...</p>
       </div>
       <div style="margin-left: auto;">
-        <span style="background:rgba(255,255,255,0.2); padding:0.35rem 0.75rem; border-radius:0.5rem; font-size:0.85rem; font-weight:600; color:white; letter-spacing:0.02em;">
+        <span class="stats-bucket-badge">
           <i class="fas fa-database" style="margin-right:0.4rem;"></i>{{bucketvar}}
         </span>
       </div>
@@ -21,21 +21,7 @@
   </div>
 </div>
 
-{{#if message}}
-<div class="alert alert-success alert-dismissible fade show" role="alert" id="successAlert">
-  <i class="fas fa-check-circle"></i>
-  <span id="successMessage">{{message}}</span>
-  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
-</div>
-{{/if}}
-
-{{#if error}}
-<div class="alert alert-danger alert-dismissible fade show" role="alert" id="errorAlert">
-  <i class="fas fa-exclamation-triangle"></i>
-  <span id="errorMessage">{{error}}</span>
-  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">&times;</button>
-</div>
-{{/if}}
+{{> bucketadmin_alerts }}
 
 <div class="mb-4">
   <!-- Upload Form -->
@@ -142,11 +128,7 @@
   </div>
   <div class="card-body" style="padding: 0;">
     <div id="fileListContainer">
-      <div class="empty-state">
-        <i class="fas fa-spinner fa-spin"></i>
-        <h4>Loading files...</h4>
-        <p>Please wait while we fetch your files.</p>
-      </div>
+      {{> bucketadmin_filelist_skeleton }}
     </div>
 
     <!-- Pagination -->
@@ -159,80 +141,9 @@
   </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
-<div class="modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="deleteModalLabel">
-          <i class="fas fa-exclamation-triangle"></i>
-          Confirm Delete
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-          onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <i class="fas fa-trash-alt fa-3x"></i>
-        <h6>Are you sure you want to delete this file?</h6>
-        <p class="modal-body-text-style">
-          <strong id="deleteFileName" style="color: var(--dark-color-ml);"></strong>
-        </p>
-        <p class="modal-body-text-top">
-          <small>This action cannot be undone.</small>
-        </p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeModal()">
-          <i class="fas fa-times"></i>
-          Cancel
-        </button>
-        <form id="deleteForm" method="post" action="/mbkbucket/delete" style="display: inline;">
-          <input type="hidden" name="key" id="deleteKey">
-          <input type="hidden" name="prefix" value="{{prefix}}">
-          <input type="hidden" name="folder" id="deleteIsFolder" value="">
-          <button type="submit" class="btn btn-danger" id="deleteConfirmButton">
-            <i class="fas fa-trash"></i>
-            <span id="deleteConfirmLabel">Delete File</span>
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
+{{> bucketadmin_delete_modal }}
 
-<!-- Preview Modal -->
-<div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="previewModalLabel" tabindex="-1">
-  <div class="modal-dialog preview-modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="previewModalLabel"><i class="fas fa-eye"></i> <span
-            id="previewFileName">Preview</span></h5>
-        <div class="preview-header-controls">
-          <button id="previewFullscreenBtn" class="btn btn-outline-secondary btn-sm" type="button"
-            aria-label="Toggle fullscreen"><i class="fas fa-expand"></i></button>
-          <button type="button" class="btn-close" aria-label="Close preview" id="previewCloseBtn">&times;</button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="preview-content" id="previewContent" aria-live="polite">
-          <div class="empty-preview">
-            <i class="fas fa-spinner fa-spin"></i>
-            <div class="modal-header-spacing">Loading preview...</div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer preview-footer">
-        <div class="preview-actions">
-          <a id="previewOpenBtn" class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer" href="#"><i
-              class="fas fa-external-link-alt"></i> Open</a>
-          <a id="previewDownloadBtn" class="btn btn-success" download href="#"><i class="fas fa-download"></i>
-            Download</a>
-          <button type="button" class="btn btn-secondary" id="previewCloseFooter">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+{{> bucketadmin_preview_modal }}
 
 <!-- Toast Container -->
 <div id="toast-container" class="toast-container"></div>

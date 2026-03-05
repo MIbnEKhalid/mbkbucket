@@ -1,4 +1,4 @@
-// Type definitions for mbkbucket 1.4.0
+// Type definitions for mbkbucket 1.5.0
 // Project: https://github.com/MIbnEKhalid/mbkbucket
 // Definitions by: Muhammad Bin Khalid <https://github.com/MIbnEKhalid">
 
@@ -26,6 +26,53 @@ export interface S3ObjectResult {
   [key: string]: any;
 }
 
+// Options passed to uploadFile
+export interface UploadOptions {
+  metadata?: Record<string, string>;
+  cacheControl?: string;
+  storageClass?: string;
+  serverSideEncryption?: string;
+  bucketName?: string;
+  preventOverwrite?: boolean; // added in 1.4.1
+  [key: string]: any;
+}
+
+// Options for listing files
+export interface ListFilesOptions {
+  maxKeys?: number;
+  continuationToken?: string | null;
+  delimiter?: string | null;
+  fetchOwner?: boolean;
+  startAfter?: string | null;
+  bucketName?: string;
+  [key: string]: any;
+}
+
+// Result returned from listfiles calls
+export interface ListFilesResult extends Record<string, any> {
+  requestedAt: string;
+  totalFiles: number;
+  hasMore: boolean;
+  nextToken: string | null;
+}
+
+// Incomplete multipart upload descriptor returned by AWS
+export interface IncompleteMultipartUpload {
+  Key?: string;
+  UploadId?: string;
+  Initiated?: string;
+  Initiator?: { DisplayName?: string; [key: string]: any };
+  [key: string]: any;
+}
+
+// Result returned by cleanupIncompleteMultipartUploads
+export interface CleanupResult {
+  abortedCount: number;
+  uploads: Array<{ key: string; uploadId: string; initiated?: string }>;
+  cleanedAt?: string;
+  [key: string]: any;
+}
+
 /**
  * S3-related functions (available from `mbkbucket/lib/s3` and re-exported at package root)
  */
@@ -41,14 +88,7 @@ export function uploadFile(
   key: string,
   fileBuffer: Buffer | Uint8Array,
   contentType: string,
-  options?: {
-    metadata?: Record<string, string>;
-    cacheControl?: string;
-    storageClass?: string;
-    serverSideEncryption?: string;
-    bucketName?: string;
-    [key: string]: any;
-  }
+  options?: UploadOptions
 ): Promise<{ fileSize?: number; key: string; contentType?: string; uploadedAt?: string } & Record<string, any>>;
 
 export function downloadFile(
@@ -83,16 +123,8 @@ export function deleteFolder(prefix: string, bucketName?: string): Promise<{
 
 export function listfiles(
   prefix?: string,
-  options?: {
-    maxKeys?: number;
-    continuationToken?: string | null;
-    delimiter?: string | null;
-    fetchOwner?: boolean;
-    startAfter?: string | null;
-    bucketName?: string;
-    [key: string]: any;
-  }
-): Promise<Record<string, any>>;
+  options?: ListFilesOptions
+): Promise<ListFilesResult>;
 
 export function getFileMetadata(key: string, bucketName?: string): Promise<{
   key: string;
@@ -147,6 +179,17 @@ export function abortMultipartUpload(
   uploadId: string
 ): Promise<{ key: string; abortedAt: string }>;
 
+export function listIncompleteMultipartUploads(
+  prefix?: string,
+  bucketName?: string
+): Promise<IncompleteMultipartUpload[]>;
+
+export function cleanupIncompleteMultipartUploads(
+  olderThanDays?: number,
+  prefix?: string,
+  bucketName?: string
+): Promise<CleanupResult>;
+
 /**
  * Configuration variables from mbkbucket
  */
@@ -193,6 +236,46 @@ declare module "mbkbucket/lib/s3" {
     Key?: string;
     [key: string]: any;
   }
+
+  // re-use shared interfaces defined at top of index.d.ts
+  export interface UploadOptions {
+    metadata?: Record<string, string>;
+    cacheControl?: string;
+    storageClass?: string;
+    serverSideEncryption?: string;
+    bucketName?: string;
+    preventOverwrite?: boolean;
+    [key: string]: any;
+  }
+  export interface ListFilesOptions {
+    maxKeys?: number;
+    continuationToken?: string | null;
+    delimiter?: string | null;
+    fetchOwner?: boolean;
+    startAfter?: string | null;
+    bucketName?: string;
+    [key: string]: any;
+  }
+  export interface ListFilesResult extends Record<string, any> {
+    requestedAt: string;
+    totalFiles: number;
+    hasMore: boolean;
+    nextToken: string | null;
+  }
+  export interface IncompleteMultipartUpload {
+    Key?: string;
+    UploadId?: string;
+    Initiated?: string;
+    Initiator?: { DisplayName?: string; [key: string]: any };
+    [key: string]: any;
+  }
+  export interface CleanupResult {
+    abortedCount: number;
+    uploads: Array<{ key: string; uploadId: string; initiated?: string }>;
+    cleanedAt?: string;
+    [key: string]: any;
+  }
+
   export function getBucketConfig(bucketName?: string): BucketConfig;
   export const bucketClient: any;
   export function getAppName(): string;
@@ -200,19 +283,14 @@ declare module "mbkbucket/lib/s3" {
   export function ensurePrefix(prefix?: string): string;
   export function getBucketClient(bucketName?: string): any;
   export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
+
   export function uploadFile(
     key: string,
     fileBuffer: Buffer | Uint8Array,
     contentType: string,
-    options?: {
-      metadata?: Record<string, string>;
-      cacheControl?: string;
-      storageClass?: string;
-      serverSideEncryption?: string;
-      bucketName?: string;
-      [key: string]: any;
-    }
+    options?: UploadOptions
   ): Promise<{ fileSize?: number; key: string; contentType?: string; uploadedAt?: string } & Record<string, any>>;
+
   export function downloadFile(
     key: string,
     options?: {
@@ -225,6 +303,7 @@ declare module "mbkbucket/lib/s3" {
       [key: string]: any;
     }
   ): Promise<S3ObjectResult>;
+
   export function deleteFile(key: string, bucketName?: string): Promise<{ key: string; deletedAt?: string } & Record<string, any>>;
   export function deleteFiles(keys: string[], bucketName?: string): Promise<{
     results: any[];
@@ -240,18 +319,12 @@ declare module "mbkbucket/lib/s3" {
     deletedAt: string;
     prefix?: string;
   }>;
+
   export function listfiles(
     prefix?: string,
-    options?: {
-      maxKeys?: number;
-      continuationToken?: string | null;
-      delimiter?: string | null;
-      fetchOwner?: boolean;
-      startAfter?: string | null;
-      bucketName?: string;
-      [key: string]: any;
-    }
-  ): Promise<Record<string, any>>;
+    options?: ListFilesOptions
+  ): Promise<ListFilesResult>;
+
   export function getFileMetadata(key: string, bucketName?: string): Promise<{
     key: string;
     exists: boolean;
@@ -261,6 +334,7 @@ declare module "mbkbucket/lib/s3" {
     LastModified?: Date;
     [key: string]: any;
   }>;
+
   export function fileExists(key: string, bucketName?: string): Promise<boolean>;
   export function getFileSize(key: string, bucketName?: string): Promise<number | null>;
   export function generateSignedUrl(
@@ -275,26 +349,41 @@ declare module "mbkbucket/lib/s3" {
     expiresAt: string;
     generatedAt: string;
   }>;
+
   export function createMultipartUpload(
     key: string,
     contentType?: string,
     metadata?: Record<string, string>
   ): Promise<{ uploadId: string; key: string }>;
+
   export function uploadPart(
     key: string,
     uploadId: string,
     partNumber: number,
     buffer: Buffer | Uint8Array
   ): Promise<{ ETag: string; partNumber: number }>;
+
   export function completeMultipartUpload(
     key: string,
     uploadId: string,
     parts: Array<{ partNumber: number; ETag: string }>
   ): Promise<{ key: string }>;
+
   export function abortMultipartUpload(
     key: string,
     uploadId: string
   ): Promise<{ key: string; abortedAt: string }>;
+
+  export function listIncompleteMultipartUploads(
+    prefix?: string,
+    bucketName?: string
+  ): Promise<IncompleteMultipartUpload[]>;
+
+  export function cleanupIncompleteMultipartUploads(
+    olderThanDays?: number,
+    prefix?: string,
+    bucketName?: string
+  ): Promise<CleanupResult>;
 }
 
 declare module "mbkbucket/lib/config/index" {
