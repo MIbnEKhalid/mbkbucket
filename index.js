@@ -37,8 +37,10 @@ const generalLimiter = rateLimit({
   }
 });
 
-server.use(express.json());
-server.use(express.urlencoded({ extended: true }));
+// Increase body size limits to support larger form submissions (e.g., multipart upload init/complete payloads).
+// Multipart/form-data uploads themselves are handled separately via multer in the upload endpoints.
+server.use(express.json({ limit: '10mb' }));
+server.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve only specific static assets (limit exposure): CSS and JS used by the dashboard
 // This replaces serving the entire /public directory.
