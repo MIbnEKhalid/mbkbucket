@@ -10,7 +10,29 @@ let pageFolders = [];
 let currentNextToken = null;
 let currentApiPrefix = '';
 const bucketAppName = document.getElementById('bucketAppData')?.dataset.appName || '';
-// Bucket is configured centrally on the server; client should not select a bucket.
+const selectedBucket = new URLSearchParams(window.location.search).get('bucket') || '';
+let activeBucket = selectedBucket;
+const isRootApp = String(bucketAppName || '').toLowerCase() === 'portal';
+const rootLabel = isRootApp ? 'root' : (bucketAppName || 'app');
+let currentQuickFilter = 'all';
+let virtualRenderLimit = 0;
+const VIRTUAL_RENDER_THRESHOLD = 500;
+const VIRTUAL_RENDER_BATCH = 250;
+let lastRenderContext = null;
+
+function withBucketUrl(url) {
+    if (!activeBucket) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}bucket=${encodeURIComponent(activeBucket)}`;
+}
+
+function getViewUrl(encodedKey) {
+    return withBucketUrl(`/mbkbucket/view/${encodedKey}`);
+}
+
+function getDownloadUrl(encodedKey) {
+    return withBucketUrl(`/mbkbucket/download/${encodedKey}`);
+}
 
 function stripApiPrefixFromPath(path, apiPrefix = '') {
     const normalizedPath = String(path || '').replace(/^\/+/, '');
@@ -35,6 +57,64 @@ function toApiFolderPath(prefix = '', apiPrefix = '') {
         return uiPrefix;
     }
     return `${normalizedApiPrefix}/${uiPrefix}`;
+}
+
+function escapeHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value = '') {
+    return escapeHtml(value);
+}
+
+function syncStateUrl(page = currentPage, prefix = currentPrefix, search = currentSearch) {
+    try {
+        const parts = [];
+        if (activeBucket) parts.push(`bucket=${encodeURIComponent(activeBucket)}`);
+        if (prefix) {
+            const folderPathForUrl = toApiFolderPath(prefix, currentApiPrefix);
+            const folderEncoded = encodeURIComponent(folderPathForUrl).replace(/%2F/g, '/');
+            parts.push(`folder=${folderEncoded}`);
+        }
+        if (page && page > 1) parts.push(`page=${page}`);
+        if (search) parts.push(`search=${encodeURIComponent(search)}`);
+        parts.push(`sort=${encodeURIComponent(currentSort)}`);
+        parts.push(`order=${encodeURIComponent(currentOrder)}`);
+        parts.push(`view=${encodeURIComponent(currentViewMode)}`);
+        parts.push(`filter=${encodeURIComponent(currentQuickFilter)}`);
+
+        const newUrl = '/mbkbucket' + (parts.length ? '?' + parts.join('&') : '');
+        window.history.replaceState(null, '', newUrl);
+    } catch (e) {
+        console.warn('history update failed', e);
+    }
+}
+
+function getActiveBucketLabel() {
+    return activeBucket || 'default bucket';
+}
+
+function matchesQuickFilter(fileName = '', filter = currentQuickFilter) {
+    const ext = String(fileName).split('.').pop().toLowerCase();
+    const media = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'mp4', 'webm', 'ogg', 'avi', 'mov', 'mp3', 'wav', 'flac', 'aac', 'm4a']);
+    const docs = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv']);
+    const code = new Set(['js', 'ts', 'html', 'htm', 'css', 'php', 'py', 'java', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'rs', 'sql', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'toml', 'ini', 'conf', 'json', 'xml', 'log']);
+
+    if (filter === 'media') return media.has(ext);
+    if (filter === 'docs') return docs.has(ext);
+    if (filter === 'code') return code.has(ext);
+    return true;
+}
+
+function updateQuickFilterUI() {
+    document.querySelectorAll('.quick-filter-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.filter === currentQuickFilter);
+    });
 }
 
 // Show alert message (Toast)
@@ -103,26 +183,10 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
     currentSearch = search;
     currentSort = sort;
     currentOrder = order;
+    virtualRenderLimit = 0;
 
-    // Update browser URL so navigation is shareable/bookmarkable (folder shown as readable path)
-    try {
-        const parts = [];
-        if (prefix) {
-            const folderPathForUrl = toApiFolderPath(prefix, currentApiPrefix);
-            // preserve slashes in folder param for readability: encode then restore slashes
-            const folderEncoded = encodeURIComponent(folderPathForUrl).replace(/%2F/g, '/');
-            parts.push(`folder=${folderEncoded}`);
-        }
-        if (page && page > 1) parts.push(`page=${page}`);
-        if (search) parts.push(`search=${encodeURIComponent(search)}`);
-        // Optional: Add sort/order to URL if desired, skipping for simplicity/clean URLs for now
-
-        const newUrl = '/mbkbucket' + (parts.length ? '?' + parts.join('&') : '');
-        window.history.replaceState(null, '', newUrl);
-    } catch (e) {
-        // Ignore history errors in older browsers
-        console.warn('history update failed', e);
-    }
+    // Update browser URL so navigation is shareable/bookmarkable.
+    syncStateUrl(page, prefix, search);
 
     const container = document.getElementById('fileListContainer');
     const paginationContainer = document.getElementById('paginationContainer');
@@ -157,7 +221,7 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         const recursiveParam = `&recursive=${!isFolderMode}`; // false if folder mode, true if flat mode
         const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
 
-        const response = await fetch(`/mbkbucket/api/files?page=${page}&prefix=${encodeURIComponent(prefix)}${searchParam}${sortParam}${recursiveParam}${tokenParam}`);
+        const response = await fetch(withBucketUrl(`/mbkbucket/api/files?page=${page}&prefix=${encodeURIComponent(prefix)}${searchParam}${sortParam}${recursiveParam}${tokenParam}`));
         const data = await response.json();
 
         if (!data.success) {
@@ -176,11 +240,13 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         }
 
         if (search) {
-            filterInfo.textContent = `Search results for: "${search}"`;
+            const filterSuffix = currentQuickFilter !== 'all' ? ` • Filter: ${currentQuickFilter}` : '';
+            filterInfo.textContent = `Bucket: ${getActiveBucketLabel()} • Search: "${search}"${filterSuffix}`;
             fileListTitle.innerHTML = `Search Results <span class="text-muted">for: </span><span class="badge bg-info">${search}</span>`;
         } else {
-            const label = prefix || bucketAppName || 'app';
-            filterInfo.textContent = `Filtered by folder: ${label}`;
+            const label = prefix || rootLabel;
+            const filterSuffix = currentQuickFilter !== 'all' ? ` • Filter: ${currentQuickFilter}` : '';
+            filterInfo.textContent = `Bucket: ${getActiveBucketLabel()} • Folder: ${label}${filterSuffix}`;
             fileListTitle.innerHTML = `Files <span class="text-muted">in: </span><span class="badge bg-info">${label}</span>`;
         }
 
@@ -192,7 +258,7 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
           <div class="empty-state">
             <i class="fas fa-folder-open"></i>
             <h4>No files found</h4>
-            <p>Your bucket is empty. Upload some files to get started!</p>
+                        <p>Bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong> is empty. Upload some files to get started!</p>
             <button class="btn btn-lg" onclick="document.getElementById('fileInput').click()">
               <i class="fas fa-plus"></i> Upload Your First File
             </button>
@@ -223,7 +289,7 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         <div class="empty-state">
           <i class="fas fa-exclamation-triangle" style="color: var(--danger-color-ml);"></i>
           <h4>Error Loading Files</h4>
-          <p>${error.message}</p>
+                    <p>Bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong>: ${escapeHtml(error.message)}</p>
           <button class="btn btn-primary" onclick="loadFiles(${page}, '${prefix}')">
             <i class="fas fa-redo"></i> Retry
           </button>
@@ -263,6 +329,7 @@ function toggleSort(field) {
         });
 
         renderFilesTable(pageFiles, pageFolders, currentPrefix, currentApiPrefix);
+        syncStateUrl(currentPage, currentPrefix, currentSearch);
     }
 }
 
@@ -279,6 +346,15 @@ function performSearch() {
 function clearSearch() {
     document.getElementById('searchInput').value = '';
     loadFiles(1, currentPrefix, '');
+}
+
+function setQuickFilter(filter = 'all') {
+    const nextFilter = String(filter || 'all').toLowerCase();
+    if (currentQuickFilter === nextFilter) return;
+    currentQuickFilter = nextFilter;
+    updateQuickFilterUI();
+    renderFilesTable(pageFiles, pageFolders, currentPrefix, currentApiPrefix);
+    syncStateUrl(currentPage, currentPrefix, currentSearch);
 }
 
 // Extract unique folders at current level
@@ -330,8 +406,14 @@ function changeViewMode(mode) {
         btnFolder.classList.add('btn-outline-light');
     }
 
-    // Re-render with existing data
-    renderFilesTable(pageFiles, pageFolders, currentPrefix, currentApiPrefix);
+    // Refetch to respect recursive/non-recursive mode and keep URL state.
+    loadFiles(1, currentPrefix, currentSearch, currentSort, currentOrder);
+}
+
+function expandVirtualRows() {
+    if (!lastRenderContext) return;
+    virtualRenderLimit += VIRTUAL_RENDER_BATCH;
+    renderFilesTable(lastRenderContext.files, lastRenderContext.folders, lastRenderContext.prefix, lastRenderContext.apiPrefix);
 }
 
 // Extract folders that match a search query from file paths
@@ -364,6 +446,8 @@ function extractMatchingFolders(files, search) {
 
 // Render files table
 function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
+    lastRenderContext = { files, folders, prefix, apiPrefix };
+
     // Determine which files/folders to show based on view mode
     let displayFiles = [];
     let displayFolders = [];
@@ -409,6 +493,12 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
         displayFolders = folders;
     }
 
+    // Apply quick file-type filter after mode/path filtering.
+    displayFiles = displayFiles.filter((f) => {
+        const name = String(f?.Key || '').split('/').pop();
+        return matchesQuickFilter(name, currentQuickFilter);
+    });
+
     // Generate breadcrumb navigation
     let breadcrumb = '';
     // Show breadcrumb only if we are in folder mode OR if we have a prefix filter active even in flat mode
@@ -419,7 +509,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
         <div class="breadcrumb-nav">
           <div class="breadcrumb-item">
             <i class="fas fa-home"></i>
-            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to ${bucketAppName || 'app'}">${bucketAppName || 'app'}</span>
+            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to ${rootLabel}">${rootLabel}</span>
           </div>
       `;
 
@@ -451,13 +541,18 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
     }
 
     // Generate folder rows (only used in folder mode)
-    const folderRows = displayFolders.map(folderPath => {
+        const folderRows = displayFolders.map(folderPath => {
         // Handle folder paths which typically end in a slash (e.g., "folder/subfolder/")
-        const cleanPath = folderPath.replace(/\/+$/, ''); 
+                const rawFolderPath = String(folderPath || '');
+                const cleanPath = rawFolderPath.replace(/\/+$/, ''); 
+                const folderKeyForDelete = `${cleanPath}/`;
         const folderName = cleanPath.split('/').pop();
+                const safeFolderName = escapeHtml(folderName);
+                const safeFolderPathAttr = escapeAttr(rawFolderPath);
+                const safeFolderDeleteKeyAttr = escapeAttr(folderKeyForDelete);
         
         return `
-        <tr class="folder-row" onclick="loadFiles(1, '${folderPath}')" title="Open folder: ${folderName}">
+                <tr class="folder-row" data-folder-path="${safeFolderPathAttr}" title="Open folder: ${safeFolderName}">
           <td style="text-align:center;">
             <!-- no selection for folders -->
           </td>
@@ -468,10 +563,10 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
               </div>
               <div class="file-info">
                 <div class="file-name" style="font-weight: 700;">
-                  <i class="fas fa-folder" style="margin-right: 0.5rem; color: #f59e0b;"></i>${folderName}/
+                                    <i class="fas fa-folder" style="margin-right: 0.5rem; color: #f59e0b;"></i>${safeFolderName}/
                 </div>
               </div>              
-              <button type="button" class="btn btn-danger btn-sm delete-btn dtm" onclick="event.stopPropagation(); confirmDelete('${folderPath}/', true);" data-key="${folderPath}/" data-is-folder="true" title="Delete folder">
+                            <button type="button" class="btn btn-danger btn-sm delete-btn dtm" data-key="${safeFolderDeleteKeyAttr}" data-is-folder="true" title="Delete folder">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -484,7 +579,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
           </td>
           <td style="text-align: center;">
             <div class="btn-group" role="group">
-              <button type="button" class="btn btn-danger btn-sm delete-btn" onclick="event.stopPropagation(); confirmDelete('${folderPath}/', true);" data-key="${folderPath}/" data-is-folder="true" title="Delete folder">
+                            <button type="button" class="btn btn-danger btn-sm delete-btn" data-key="${safeFolderDeleteKeyAttr}" data-is-folder="true" title="Delete folder">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -493,12 +588,22 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
       `;
     }).join('');
 
+    const isVirtualized = displayFiles.length > VIRTUAL_RENDER_THRESHOLD;
+    if (!isVirtualized) {
+        virtualRenderLimit = 0;
+    } else if (!virtualRenderLimit) {
+        virtualRenderLimit = VIRTUAL_RENDER_BATCH;
+    }
+    const visibleFiles = isVirtualized ? displayFiles.slice(0, virtualRenderLimit) : displayFiles;
+
     // Generate file rows
-    const fileRows = displayFiles.map(file => {
-        const encodedKey = encodeURIComponent(file.Key);
+    const fileRows = visibleFiles.map(file => {
+        const rawKey = String(file.Key || '');
+        const encodedKey = encodeURIComponent(rawKey);
+        const safeKeyAttr = escapeAttr(rawKey);
 
         // Calculate display name and icon directly
-        const fullPath = file.Key;
+        const fullPath = rawKey;
         const lastSlashIndex = fullPath.lastIndexOf('/');
         let filename = fullPath;
         let folderPath = '';
@@ -512,18 +617,21 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
         const typeCategory = window.getFileTypeCategory ? window.getFileTypeCategory(filename) : '';
         const truncatedName = (window.truncateFileName ? window.truncateFileName(filename) : filename) || filename;
         const isFileViewable = window.isViewable ? window.isViewable(filename) : false;
+                const safeFilename = escapeHtml(filename);
+                const safeTruncatedName = escapeHtml(truncatedName);
+                const safeFolderPath = escapeHtml(folderPath);
 
         // If in flat mode, we might want to show the folder path more prominently
         const pathDisplay = (currentViewMode === 'flat' && folderPath && folderPath !== prefix + (prefix ? '/' : ''))
             ? `<div class="file-path-display">
-             <i class="fas fa-folder" style="margin-right:4px; opacity:0.5;"></i> ${folderPath}
+                         <i class="fas fa-folder" style="margin-right:4px; opacity:0.5;"></i> ${safeFolderPath}
            </div>`
             : '';
 
         return `
         <tr class="file-row">
           <td style="text-align:center;">
-            <input type="checkbox" class="selectFileCheckbox" data-key="${file.Key}" aria-label="Select ${file.Key}" />
+                        <input type="checkbox" class="selectFileCheckbox" data-key="${safeKeyAttr}" aria-label="Select ${safeKeyAttr}" />
           </td>
           <td style="padding-left: 1.5rem;">
             <div style="display: flex; align-items: center;">
@@ -532,7 +640,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
               </div>
               <div class="file-info">
                 ${pathDisplay}
-                <div class="file-name" data-full-path="${file.Key}" title="${filename}">${truncatedName}</div>
+                                <div class="file-name" data-full-path="${safeKeyAttr}" title="${safeFilename}">${safeTruncatedName}</div>
               </div>
             </div>
           </td>
@@ -544,18 +652,18 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
           </td>
           <td style="text-align: center;">
             <div class="btn-group" role="group">
-              <button type="button" class="btn btn-primary btn-sm view-btn" data-key="${file.Key}" data-filename="${file.Key}"
+                            <button type="button" class="btn btn-primary btn-sm view-btn" data-key="${safeKeyAttr}" data-filename="${safeKeyAttr}"
                 data-key-enc="${encodedKey}" title="${isFileViewable ? 'View file in browser' : 'File type not supported for viewing'}" ${!isFileViewable ? 'disabled style="opacity:0.5"' : ''}>
                 <i class="fas fa-eye"></i>
               </button>
               <button type="button" class="btn btn-info btn-sm copy-btn" data-key-enc="${encodedKey}" title="Copy Link" style="color:white;">
                 <i class="fas fa-link"></i>
               </button>
-              <a href="/mbkbucket/download/${encodedKey}" class="btn btn-success btn-sm"
+                            <a href="${getDownloadUrl(encodedKey)}" class="btn btn-success btn-sm"
                 title="Download file">
                 <i class="fas fa-download"></i>
               </a>
-              <button type="button" class="btn btn-danger btn-sm delete-btn" data-key="${file.Key}" title="Delete file">
+                            <button type="button" class="btn btn-danger btn-sm delete-btn" data-key="${safeKeyAttr}" title="Delete file">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -576,7 +684,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
           </div>
           <h4>No files found</h4>
           <p class="empty-state-description">
-            ${prefix ? `This folder <strong>${prefix}</strong> is currently empty.` : 'Your bucket is empty. Start by uploading files or creating a new folder.'}
+                        ${prefix ? `This folder <strong>${escapeHtml(prefix)}</strong> is currently empty in bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong>.` : `Bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong> is empty. Start by uploading files or creating a new folder.`}
           </p>
           <div class="empty-state-actions">
             <button class="btn btn-primary" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); document.getElementById('fileInput').click()">
@@ -586,7 +694,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
               <i class="fas fa-folder-plus"></i> New Folder
             </button>
                         ${prefix ? `<button class="btn btn-light" onclick="loadFiles(1, '')">
-                            <i class="fas fa-home"></i> Go to ${bucketAppName || 'app'}
+                            <i class="fas fa-home"></i> Go to ${rootLabel}
             </button>` : ''}
           </div>
         </div>
@@ -602,7 +710,16 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
             : '<i class="fas fa-sort-down sort-icon sort-icon-active"></i>';
     };
 
-    document.getElementById('fileListContainer').innerHTML = `
+        const virtualizedInfo = isVirtualized
+                ? `<div class="virtualized-info">
+                        <span>Showing ${visibleFiles.length} of ${displayFiles.length} files in this view.</span>
+                        <div class="virtualized-actions">
+                            ${visibleFiles.length < displayFiles.length ? '<button class="btn btn-sm btn-outline-secondary" onclick="expandVirtualRows()">Load more</button>' : ''}
+                        </div>
+                    </div>`
+                : '';
+
+        document.getElementById('fileListContainer').innerHTML = `
       ${breadcrumb}
       <div class="table-responsive">
         <div id="bulkActionsBar" class="bulk-actions-bar">
@@ -637,6 +754,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
             ${allRows}
           </tbody>
         </table>
+                ${virtualizedInfo}
       </div>
     `;
 
@@ -819,7 +937,7 @@ document.getElementById('deleteForm')?.addEventListener('submit', async function
     const isFolder = document.getElementById('deleteIsFolder').value === 'true';
 
     try {
-        const response = await fetch('/mbkbucket/delete', {
+        const response = await fetch(withBucketUrl('/mbkbucket/delete'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -889,6 +1007,9 @@ function renderUploadQueue() {
     }
 
     container.innerHTML = uploadQueue.map(item => {
+        const safeName = escapeHtml(item.file.name);
+        const iconClass = window.getFileIcon ? window.getFileIcon(item.file.name) : 'fas fa-file-alt';
+        const typeCategory = window.getFileTypeCategory ? window.getFileTypeCategory(item.file.name) : '';
         let statusText;
         if (item.status === 'uploading') {
             const pct = Math.round(item.progress || 0);
@@ -904,8 +1025,8 @@ function renderUploadQueue() {
       <div class="upload-item" data-id="${item.id}">
         <div class="meta">
           <div class="upload-item-meta-row">
-            <div class="file-icon"><i class="fas fa-file"></i></div>
-            <div class="name">${item.file.name}</div>
+                        <div class="file-icon upload-file-icon ${typeCategory}"><i class="${iconClass}"></i></div>
+                        <div class="name upload-item-name" title="${safeName}">${safeName}</div>
             <div class="form-text file-size upload-item-size-label">${formatFileSize(item.file.size)}</div>
           </div>
         </div>
@@ -942,7 +1063,7 @@ function renderUploadQueue() {
         // Tell S3 to discard the incomplete multipart upload
         if (entry && entry.s3UploadId && entry.s3Key) {
             try {
-                await fetch('/mbkbucket/upload-abort', {
+                await fetch(withBucketUrl('/mbkbucket/upload-abort'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ uploadId: entry.s3UploadId, key: entry.s3Key })
@@ -988,7 +1109,7 @@ async function startUploadEntry(entry) {
             // S3 Multipart Upload
             // Step 1 — Initiate: get uploadId + key from the server
             // ---------------------------------------------------------------
-            const initResp = await fetch('/mbkbucket/upload-init', {
+            const initResp = await fetch(withBucketUrl('/mbkbucket/upload-init'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1015,7 +1136,7 @@ async function startUploadEntry(entry) {
                 const _chunkStart = Date.now();
                 if (entry.status === 'cancelled') {
                     // Clean up on S3
-                    await fetch('/mbkbucket/upload-abort', {
+                    await fetch(withBucketUrl('/mbkbucket/upload-abort'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ uploadId, key })
@@ -1036,7 +1157,7 @@ async function startUploadEntry(entry) {
                 const controller = new AbortController();
                 xhrMap.set(entry.id, { controller, s3UploadId: uploadId, s3Key: key });
 
-                const chunkResp = await fetch('/mbkbucket/upload-chunk', {
+                const chunkResp = await fetch(withBucketUrl('/mbkbucket/upload-chunk'), {
                     method: 'POST',
                     body: fd,
                     signal: controller.signal
@@ -1056,7 +1177,7 @@ async function startUploadEntry(entry) {
             // ---------------------------------------------------------------
             // Step 3 — Complete: assemble all parts on S3
             // ---------------------------------------------------------------
-            const completeResp = await fetch('/mbkbucket/upload-complete', {
+            const completeResp = await fetch(withBucketUrl('/mbkbucket/upload-complete'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uploadId, key, parts })
@@ -1076,7 +1197,7 @@ async function startUploadEntry(entry) {
             fd.append('prefix', currentPrefix);
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/mbkbucket/upload');
+            xhr.open('POST', withBucketUrl('/mbkbucket/upload'));
 
             xhr.upload.addEventListener('progress', (e) => {
                 if (!e.lengthComputable) return;
@@ -1123,7 +1244,7 @@ async function startUploadEntry(entry) {
         console.error('Upload failed for', entry.file.name, err);
         // If a multipart upload was initiated but didn't finish (not a user cancel), abort it on S3
         if (entry.s3UploadId && entry.s3Key && entry.status !== 'cancelled') {
-            fetch('/mbkbucket/upload-abort', {
+            fetch(withBucketUrl('/mbkbucket/upload-abort'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uploadId: entry.s3UploadId, key: entry.s3Key })
@@ -1151,20 +1272,33 @@ document.getElementById('clearQueueBtn')?.addEventListener('click', function () 
 function initializeUploadCollapse() {
     const toggleBtn = document.getElementById('uploadToggleBtn');
     const uploadSection = document.getElementById('uploadSection');
+    const uploadCard = uploadSection?.closest('.dashboard-card');
     
     if (!toggleBtn || !uploadSection) return;
+
+    const syncUploadCollapseState = (expanded) => {
+        uploadSection.classList.toggle('expanded', expanded);
+        toggleBtn.classList.toggle('expanded', expanded);
+        toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        uploadSection.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+        if (uploadCard) uploadCard.classList.toggle('upload-panel-open', expanded);
+    };
+
+    toggleBtn.setAttribute('role', 'button');
+    toggleBtn.setAttribute('tabindex', '0');
+    toggleBtn.setAttribute('aria-controls', 'uploadSection');
+    syncUploadCollapseState(uploadSection.classList.contains('expanded'));
     
     toggleBtn.addEventListener('click', function() {
         const isExpanded = uploadSection.classList.contains('expanded');
-        
-        if (isExpanded) {
-            // Collapse
-            uploadSection.classList.remove('expanded');
-            toggleBtn.classList.remove('expanded');
-        } else {
-            // Expand
-            uploadSection.classList.add('expanded');
-            toggleBtn.classList.add('expanded');
+        syncUploadCollapseState(!isExpanded);
+    });
+
+    toggleBtn.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const isExpanded = uploadSection.classList.contains('expanded');
+            syncUploadCollapseState(!isExpanded);
         }
     });
 }
@@ -1173,12 +1307,61 @@ function initializeUploadCollapse() {
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize collapsible upload section
     initializeUploadCollapse();
+
+    const bucketSelectorEl = document.getElementById('bucketSelector');
+    const bucketSwitchStatusEl = document.getElementById('bucketSwitchStatus');
+    if (bucketSelectorEl && bucketSelectorEl.value) {
+        activeBucket = bucketSelectorEl.value;
+    }
+    if (bucketSelectorEl) {
+        bucketSelectorEl.addEventListener('change', function () {
+            const nextBucket = String(this.value || '').trim();
+            if (!nextBucket) return;
+            if (nextBucket === activeBucket) return;
+
+            const nextParams = new URLSearchParams(window.location.search);
+            nextParams.set('bucket', nextBucket);
+            nextParams.delete('page');
+            nextParams.delete('token');
+
+            this.disabled = true;
+            this.setAttribute('aria-busy', 'true');
+            if (bucketSwitchStatusEl) bucketSwitchStatusEl.style.display = 'inline';
+
+            const qs = nextParams.toString();
+            window.location.href = `/mbkbucket${qs ? `?${qs}` : ''}`;
+        });
+    }
     
-    // Load initial files (support both legacy 'prefix' and new 'folder' query param)
+    // Load initial files with persisted state.
     const urlParams = new URLSearchParams(window.location.search);
     const initialPrefix = urlParams.get('folder') || urlParams.get('prefix') || '';
     const initialPage = parseInt(urlParams.get('page')) || 1;
-    loadFiles(initialPage, initialPrefix);
+    const initialSearch = urlParams.get('search') || '';
+    const initialSort = (urlParams.get('sort') || 'name').toLowerCase();
+    const initialOrder = (urlParams.get('order') || 'asc').toLowerCase();
+    const initialView = (urlParams.get('view') || currentViewMode).toLowerCase();
+    const initialFilter = (urlParams.get('filter') || 'all').toLowerCase();
+
+    if (initialView === 'folder' || initialView === 'flat') {
+        currentViewMode = initialView;
+    }
+    currentQuickFilter = ['all', 'media', 'docs', 'code'].includes(initialFilter) ? initialFilter : 'all';
+    updateQuickFilterUI();
+
+    // Ensure view button state reflects restored mode before first render.
+    if (currentViewMode === 'flat') {
+        const btnFolder = document.getElementById('viewBtnFolder');
+        const btnFlat = document.getElementById('viewBtnFlat');
+        btnFlat?.classList.add('active', 'btn-light');
+        btnFlat?.classList.remove('btn-outline-light');
+        btnFolder?.classList.remove('active', 'btn-light');
+        btnFolder?.classList.add('btn-outline-light');
+    }
+
+    const searchInputInit = document.getElementById('searchInput');
+    if (searchInputInit) searchInputInit.value = initialSearch;
+    loadFiles(initialPage, initialPrefix, initialSearch, initialSort, initialOrder);
 
     // Search behavior: Trigger when the Search button is clicked OR when the user presses Enter in the search input
     const searchInputEl = document.getElementById('searchInput');
@@ -1201,6 +1384,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Delegate view and delete button clicks to avoid inline JS with unescaped data
     document.addEventListener('click', function (e) {
+        const folderRow = e.target.closest('.folder-row');
+        if (folderRow && !e.target.closest('.delete-btn')) {
+            const folderPath = folderRow.dataset.folderPath;
+            if (folderPath) loadFiles(1, folderPath);
+            return;
+        }
+
         const vbtn = e.target.closest('.view-btn');
         if (vbtn) {
             const keyEnc = vbtn.dataset.keyEnc;
@@ -1220,12 +1410,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const cbtn = e.target.closest('.copy-btn');
-        console.log(cbtn);
         if (cbtn) {
             e.stopPropagation();
             const keyEnc = cbtn.dataset.keyEnc;
             if (!keyEnc) return;
-            const link = `${window.location.origin}/mbkbucket/view/${keyEnc}`;
+            const link = `${window.location.origin}${getViewUrl(keyEnc)}`;
             const fallbackCopy = () => {
                 try {
                     const ta = document.createElement('textarea');
@@ -1302,7 +1491,7 @@ function handleViewFile(key, filename, event) {
 function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto') {
     const modal = document.getElementById('previewModal');
     if (!modal) {
-        window.open(`/mbkbucket/view/${encodedKey}`, '_blank', 'noopener,noreferrer');
+        window.open(getViewUrl(encodedKey), '_blank', 'noopener,noreferrer');
         return;
     }
 
@@ -1316,8 +1505,9 @@ function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto')
     const fsBtn = document.getElementById('previewFullscreenBtn');
 
     titleEl.textContent = filename;
-    openBtn.href = `/mbkbucket/view/${encodedKey}`;
-    downloadBtn.href = `/mbkbucket/download/${encodedKey}`;
+    titleEl.title = filename;
+    openBtn.href = getViewUrl(encodedKey);
+    downloadBtn.href = getDownloadUrl(encodedKey);
     // Ensure downloaded file has the original filename
     downloadBtn.setAttribute('download', filename);
 
@@ -1345,7 +1535,7 @@ function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto')
         dialog.classList.add('preview-compact');
         const img = document.createElement('img');
         img.className = 'preview-img';
-        img.src = `/mbkbucket/view/${encodedKey}`;
+        img.src = getViewUrl(encodedKey);
         img.alt = filename;
         img.onload = () => { };
         img.onerror = () => { contentEl.textContent = 'Could not load preview.'; };
@@ -1356,7 +1546,7 @@ function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto')
         const video = document.createElement('video');
         video.className = 'preview-video';
         video.controls = true;
-        video.src = `/mbkbucket/view/${encodedKey}`;
+        video.src = getViewUrl(encodedKey);
         contentEl.innerHTML = '';
         contentEl.appendChild(video);
     } else if (effectiveMode === 'audio') {
@@ -1364,20 +1554,20 @@ function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto')
         const audio = document.createElement('audio');
         audio.className = 'preview-audio';
         audio.controls = true;
-        audio.src = `/mbkbucket/view/${encodedKey}`;
+        audio.src = getViewUrl(encodedKey);
         contentEl.innerHTML = '';
         contentEl.appendChild(audio);
     } else if (effectiveMode === 'pdf') {
         dialog.classList.add('preview-large');
         const iframe = document.createElement('iframe');
         iframe.className = 'preview-iframe';
-        iframe.src = `/mbkbucket/view/${encodedKey}`;
+        iframe.src = getViewUrl(encodedKey);
         contentEl.innerHTML = '';
         contentEl.appendChild(iframe);
     } else if (effectiveMode === 'text') {
         dialog.classList.add('preview-compact');
         
-        fetch(`/mbkbucket/view/${encodedKey}`)
+        fetch(getViewUrl(encodedKey))
             .then(r => r.text())
             .then(text => {
                 contentEl.innerHTML = '';
@@ -1388,7 +1578,7 @@ function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto')
             })
             .catch(err => { contentEl.textContent = 'Could not load preview.'; });
     } else {
-        contentEl.innerHTML = `<div style="text-align:center;">Preview not available for this file type. <a href="/mbkbucket/download/${encodedKey}">Download</a></div>`;
+        contentEl.innerHTML = `<div style="text-align:center;">Preview not available for this file type. <a href="${getDownloadUrl(encodedKey)}">Download</a></div>`;
     }
 
     // Show modal
@@ -1567,7 +1757,7 @@ function setupSelection() {
             if (!confirm('Delete selected files? This cannot be undone.')) return;
             const keys = Array.from(selected);
             try {
-                const resp = await fetch('/mbkbucket/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }) });
+                const resp = await fetch(withBucketUrl('/mbkbucket/delete'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }) });
                 const json = await resp.json();
                 if (json.success) {
                     showAlert('Deleted selected files', 'success');
@@ -1590,7 +1780,7 @@ async function createFolder() {
     if (!safe) return showAlert('Invalid folder name', 'error');
 
     try {
-        const resp = await fetch('/mbkbucket/create-folder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix: currentPrefix, folderName: safe }) });
+        const resp = await fetch(withBucketUrl('/mbkbucket/create-folder'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix: currentPrefix, folderName: safe }) });
         const json = await resp.json();
         if (json.success) {
             showAlert('Folder created', 'success');
@@ -1626,7 +1816,7 @@ async function createFile() {
     formData.append('prefix', currentPrefix);
     
     try {
-        const resp = await fetch('/mbkbucket/upload', {
+        const resp = await fetch(withBucketUrl('/mbkbucket/upload'), {
             method: 'POST',
             body: formData
         });

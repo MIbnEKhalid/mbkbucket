@@ -1,6 +1,5 @@
-// Type definitions for mbkbucket 1.5.0
+// Type definitions for mbkbucket
 // Project: https://github.com/MIbnEKhalid/mbkbucket
-// Definitions by: Muhammad Bin Khalid <https://github.com/MIbnEKhalid">
 
 import { Readable } from "stream";
 import { Router, Application } from "express";
@@ -17,6 +16,8 @@ export interface BucketConfig {
   [key: string]: any;
 }
 
+export type BucketConnectionMap = Record<string, BucketConfig>;
+
 export interface S3ObjectResult {
   Body: Readable;
   ContentLength?: number;
@@ -26,18 +27,16 @@ export interface S3ObjectResult {
   [key: string]: any;
 }
 
-// Options passed to uploadFile
 export interface UploadOptions {
   metadata?: Record<string, string>;
   cacheControl?: string;
   storageClass?: string;
   serverSideEncryption?: string;
   bucketName?: string;
-  preventOverwrite?: boolean; // added in 1.4.1
+  preventOverwrite?: boolean;
   [key: string]: any;
 }
 
-// Options for listing files
 export interface ListFilesOptions {
   maxKeys?: number;
   continuationToken?: string | null;
@@ -48,7 +47,6 @@ export interface ListFilesOptions {
   [key: string]: any;
 }
 
-// Result returned from listfiles calls
 export interface ListFilesResult extends Record<string, any> {
   requestedAt: string;
   totalFiles: number;
@@ -56,7 +54,6 @@ export interface ListFilesResult extends Record<string, any> {
   nextToken: string | null;
 }
 
-// Incomplete multipart upload descriptor returned by AWS
 export interface IncompleteMultipartUpload {
   Key?: string;
   UploadId?: string;
@@ -65,7 +62,6 @@ export interface IncompleteMultipartUpload {
   [key: string]: any;
 }
 
-// Result returned by cleanupIncompleteMultipartUploads
 export interface CleanupResult {
   abortedCount: number;
   uploads: Array<{ key: string; uploadId: string; initiated?: string }>;
@@ -73,23 +69,31 @@ export interface CleanupResult {
   [key: string]: any;
 }
 
+export interface ConfigVars {
+  publiView_enabled: boolean;
+  p_view_inline: boolean;
+  [key: string]: any;
+}
+
 /**
- * S3-related functions (available from `mbkbucket/lib/s3` and re-exported at package root)
+ * S3 exports (re-exported from lib/s3.js at package root)
  */
+export function getAvailableBucketNames(): string[];
+export function resolveBucketName(bucketName?: string | null): string;
 export function getBucketConfig(bucketName?: string): BucketConfig;
 export const bucketClient: any;
 export function getAppName(): string;
 export function ensureKeyHasAppPrefix(key?: string): string;
 export function ensurePrefix(prefix?: string): string;
 export function getBucketClient(bucketName?: string): any;
-export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
+export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string; }>;
 
 export function uploadFile(
   key: string,
   fileBuffer: Buffer | Uint8Array,
   contentType: string,
   options?: UploadOptions
-): Promise<{ fileSize?: number; key: string; contentType?: string; uploadedAt?: string } & Record<string, any>>;
+): Promise<{ fileSize?: number; key: string; contentType?: string; uploadedAt?: string; } & Record<string, any>>;
 
 export function downloadFile(
   key: string,
@@ -121,10 +125,7 @@ export function deleteFolder(prefix: string, bucketName?: string): Promise<{
   prefix?: string;
 }>;
 
-export function listfiles(
-  prefix?: string,
-  options?: ListFilesOptions
-): Promise<ListFilesResult>;
+export function listfiles(prefix?: string, options?: ListFilesOptions): Promise<ListFilesResult>;
 
 export function getFileMetadata(key: string, bucketName?: string): Promise<{
   key: string;
@@ -141,8 +142,9 @@ export function getFileSize(key: string, bucketName?: string): Promise<number | 
 
 export function generateSignedUrl(
   key: string,
-  operation?: 'getObject' | 'putObject' | string,
-  expiresIn?: number
+  operation?: "getObject" | "putObject" | string,
+  expiresIn?: number,
+  bucketName?: string
 ): Promise<{
   url: string;
   key: string;
@@ -152,31 +154,32 @@ export function generateSignedUrl(
   generatedAt: string;
 }>;
 
-/**
- * S3 Multipart Upload Functions
- */
 export function createMultipartUpload(
   key: string,
   contentType?: string,
-  metadata?: Record<string, string>
+  metadata?: Record<string, string>,
+  bucketName?: string
 ): Promise<{ uploadId: string; key: string }>;
 
 export function uploadPart(
   key: string,
   uploadId: string,
   partNumber: number,
-  buffer: Buffer | Uint8Array
+  buffer: Buffer | Uint8Array,
+  bucketName?: string
 ): Promise<{ ETag: string; partNumber: number }>;
 
 export function completeMultipartUpload(
   key: string,
   uploadId: string,
-  parts: Array<{ partNumber: number; ETag: string }>
+  parts: Array<{ partNumber: number; ETag: string }>,
+  bucketName?: string
 ): Promise<{ key: string }>;
 
 export function abortMultipartUpload(
   key: string,
-  uploadId: string
+  uploadId: string,
+  bucketName?: string
 ): Promise<{ key: string; abortedAt: string }>;
 
 export function listIncompleteMultipartUploads(
@@ -191,35 +194,33 @@ export function cleanupIncompleteMultipartUploads(
 ): Promise<CleanupResult>;
 
 /**
- * Configuration variables from mbkbucket
+ * Config exports (re-exported from lib/config/index.js at package root)
  */
-export interface ConfigVars {
-  publiView_enabled: boolean;
-  p_view_inline: boolean;
-  [key: string]: any;
-}
-
+export const packageJson: Record<string, any>;
+export const appVersion: string;
 export const mbkbucketVar: ConfigVars;
+export function getLatestVersion(): Promise<string | null>;
+export function checkVersion(): Promise<void>;
+export function parseAndValidateMbkbucketVar(rawValue?: string): ConfigVars;
+export function parseAndValidateBucketConnection(rawValue?: string): BucketConnectionMap | null;
 
 /**
- * Exported router from `lib/bucket` (re-exported at package root as `bucket`)
+ * Router export (re-exported from lib/routes/index.js at package root as `bucket`)
  */
 export const bucket: Router;
 
 /**
- * Root default export: the configured Express application
+ * Root default export from index.js: configured Express application
  */
 declare const server: Application;
 export default server;
 
 /**
- * Module declarations for subpath imports so TypeScript consumers can import:
- * import { uploadFile } from 'mbkbucket/lib/s3';
- * import { packageJson } from 'mbkbucket/lib/config/index';
- * import bucketRouter from 'mbkbucket/lib/bucket';
+ * Subpath module declarations
  */
 declare module "mbkbucket/lib/s3" {
   import { Readable } from "stream";
+
   export interface BucketConfig {
     BUCKET_NAME: string;
     ENDPOINT?: string;
@@ -228,6 +229,9 @@ declare module "mbkbucket/lib/s3" {
     region?: string;
     [key: string]: any;
   }
+
+  export type BucketConnectionMap = Record<string, BucketConfig>;
+
   export interface S3ObjectResult {
     Body: Readable;
     ContentLength?: number;
@@ -237,7 +241,6 @@ declare module "mbkbucket/lib/s3" {
     [key: string]: any;
   }
 
-  // re-use shared interfaces defined at top of index.d.ts
   export interface UploadOptions {
     metadata?: Record<string, string>;
     cacheControl?: string;
@@ -247,6 +250,7 @@ declare module "mbkbucket/lib/s3" {
     preventOverwrite?: boolean;
     [key: string]: any;
   }
+
   export interface ListFilesOptions {
     maxKeys?: number;
     continuationToken?: string | null;
@@ -256,12 +260,14 @@ declare module "mbkbucket/lib/s3" {
     bucketName?: string;
     [key: string]: any;
   }
+
   export interface ListFilesResult extends Record<string, any> {
     requestedAt: string;
     totalFiles: number;
     hasMore: boolean;
     nextToken: string | null;
   }
+
   export interface IncompleteMultipartUpload {
     Key?: string;
     UploadId?: string;
@@ -269,6 +275,7 @@ declare module "mbkbucket/lib/s3" {
     Initiator?: { DisplayName?: string; [key: string]: any };
     [key: string]: any;
   }
+
   export interface CleanupResult {
     abortedCount: number;
     uploads: Array<{ key: string; uploadId: string; initiated?: string }>;
@@ -276,13 +283,15 @@ declare module "mbkbucket/lib/s3" {
     [key: string]: any;
   }
 
+  export function getAvailableBucketNames(): string[];
+  export function resolveBucketName(bucketName?: string | null): string;
   export function getBucketConfig(bucketName?: string): BucketConfig;
   export const bucketClient: any;
   export function getAppName(): string;
   export function ensureKeyHasAppPrefix(key?: string): string;
   export function ensurePrefix(prefix?: string): string;
   export function getBucketClient(bucketName?: string): any;
-  export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string }>;
+  export function checkHealth(): Promise<{ status: string; responseTime?: number; bucket?: string; error?: string; checkedAt: string; region?: string; }>;
 
   export function uploadFile(
     key: string,
@@ -320,10 +329,7 @@ declare module "mbkbucket/lib/s3" {
     prefix?: string;
   }>;
 
-  export function listfiles(
-    prefix?: string,
-    options?: ListFilesOptions
-  ): Promise<ListFilesResult>;
+  export function listfiles(prefix?: string, options?: ListFilesOptions): Promise<ListFilesResult>;
 
   export function getFileMetadata(key: string, bucketName?: string): Promise<{
     key: string;
@@ -337,10 +343,12 @@ declare module "mbkbucket/lib/s3" {
 
   export function fileExists(key: string, bucketName?: string): Promise<boolean>;
   export function getFileSize(key: string, bucketName?: string): Promise<number | null>;
+
   export function generateSignedUrl(
     key: string,
-    operation?: 'getObject' | 'putObject' | string,
-    expiresIn?: number
+    operation?: "getObject" | "putObject" | string,
+    expiresIn?: number,
+    bucketName?: string
   ): Promise<{
     url: string;
     key: string;
@@ -353,25 +361,29 @@ declare module "mbkbucket/lib/s3" {
   export function createMultipartUpload(
     key: string,
     contentType?: string,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
+    bucketName?: string
   ): Promise<{ uploadId: string; key: string }>;
 
   export function uploadPart(
     key: string,
     uploadId: string,
     partNumber: number,
-    buffer: Buffer | Uint8Array
+    buffer: Buffer | Uint8Array,
+    bucketName?: string
   ): Promise<{ ETag: string; partNumber: number }>;
 
   export function completeMultipartUpload(
     key: string,
     uploadId: string,
-    parts: Array<{ partNumber: number; ETag: string }>
+    parts: Array<{ partNumber: number; ETag: string }>,
+    bucketName?: string
   ): Promise<{ key: string }>;
 
   export function abortMultipartUpload(
     key: string,
-    uploadId: string
+    uploadId: string,
+    bucketName?: string
   ): Promise<{ key: string; abortedAt: string }>;
 
   export function listIncompleteMultipartUploads(
@@ -392,11 +404,37 @@ declare module "mbkbucket/lib/config/index" {
     p_view_inline: boolean;
     [key: string]: any;
   }
+
+  export interface BucketConfig {
+    BUCKET_NAME: string;
+    ENDPOINT?: string;
+    ACCESS_KEY_ID?: string;
+    SECRET_ACCESS_KEY?: string;
+    region?: string;
+    [key: string]: any;
+  }
+
+  export type BucketConnectionMap = Record<string, BucketConfig>;
+
   export const packageJson: Record<string, any>;
   export const appVersion: string;
   export const mbkbucketVar: ConfigVars;
   export function getLatestVersion(): Promise<string | null>;
   export function checkVersion(): Promise<void>;
+  export function parseAndValidateMbkbucketVar(rawValue?: string): ConfigVars;
+  export function parseAndValidateBucketConnection(rawValue?: string): BucketConnectionMap | null;
+}
+
+declare module "mbkbucket/lib/config/validation" {
+  export function normalizeBooleanLike(value: any): any;
+  export function parseAndValidateMbkbucketVar(rawValue?: string): { [key: string]: any };
+  export function parseAndValidateBucketConnection(rawValue?: string): Record<string, any> | null;
+}
+
+declare module "mbkbucket/lib/routes/index" {
+  import { Router } from "express";
+  const router: Router;
+  export default router;
 }
 
 declare module "mbkbucket/lib/bucket" {

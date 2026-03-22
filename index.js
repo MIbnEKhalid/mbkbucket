@@ -8,22 +8,17 @@ import compression from "compression";
 import rateLimit from 'express-rate-limit';
 import bucketRoutes from "./lib/routes/index.js";
 import { checkVersion } from "./lib/config/index.js";
-import { appVersion } from "./lib/config/index.js";
+import { packageJson } from "./lib/config/index.js";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const assetVersion = appVersion;
 
 const server = express();
 server.set('trust proxy', 1);
 
 server.use(compression());
-server.use((req, res, next) => {
-  res.locals.assetVersion = assetVersion;
-  next();
-});
 
 // Rate limiting: general limiter for typical browsing/API usage and a stricter
 // limiter for dashboard (admin) routes.
@@ -42,18 +37,19 @@ const generalLimiter = rateLimit({
 server.use(express.json({ limit: '10mb' }));
 server.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve only specific static assets (limit exposure): CSS and JS used by the dashboard
-// This replaces serving the entire /public directory.
-const staticMaxAgeSeconds = 90 * 24 * 60 * 60; // 90 days
+// Serve only specific static assets (limit exposure): CSS and JS used by the dashboard.
+// Avoid immutable long cache here because dashboard routes change frequently and stale JS
+// can keep writing old URLs in browser history.
+const dashboardAssetCacheControl = 'public, max-age=300, must-revalidate';
 server.get('/mbkbucket/bucketadmin.css', (req, res) => {
-  res.set('Cache-Control', `public, max-age=${staticMaxAgeSeconds}, immutable`);
+  res.set('Cache-Control', dashboardAssetCacheControl);
   res.sendFile(path.join(__dirname, 'public', 'bucketadmin.css'), (err) => {
     if (err) res.status(err.status || 404).end();
   });
 });
 
 server.get('/mbkbucket/bucketadmin.js', (req, res) => {
-  res.set('Cache-Control', `public, max-age=${staticMaxAgeSeconds}, immutable`);
+  res.set('Cache-Control', dashboardAssetCacheControl);
   res.sendFile(path.join(__dirname, 'public', 'bucketadmin.js'), (err) => {
     if (err) res.status(err.status || 404).end();
   });
@@ -63,6 +59,7 @@ server.get('/mbkbucket/bucketadmin.js', (req, res) => {
 server.engine("handlebars", engine({
   extname: ".handlebars",
   defaultLayout: "main",
+  layoutsDir: path.join(__dirname, "../../views/layouts"),
   partialsDir: [
     path.join(__dirname, "views/templates"),
     path.join(__dirname, "views/templates/notice"),
@@ -75,6 +72,9 @@ server.engine("handlebars", engine({
   helpers: {
     eq: function (a, b) {
       return a === b;
+    },
+    mbkbucket_cachebuster: function () {
+      return "?v=" + packageJson.version;
     }
   }
 }));

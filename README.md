@@ -75,6 +75,78 @@ For complete API documentation, refer to the TypeScript declarations in [index.d
 
 ---
 
+## Environment Configuration
+
+The package validates both `mbkbucketVar` and `BucketConnection` at startup.
+
+### 1 `mbkautheVar`
+
+`mbkautheVar.bucket` is used as the default bucket.
+
+Example:
+
+```env
+mbkautheVar={"APP_NAME":"portal","loginRedirectURL":"/dashboard","bucket":"R2_Bucket"}
+```
+
+Notes:
+
+- If `APP_NAME` is `portal`, mbkbucket works from bucket root (no `portal/` folder prefix).
+- If `bucket` is missing, mbkbucket falls back to the first bucket key in `BucketConnection`.
+
+### 2 `BucketConnection`
+
+Use a JSON object where each key is a selectable connection name.
+
+Example:
+
+```env
+BucketConnection={"R2_Bucket":{"BUCKET_NAME":"my-r2-bucket","ACCESS_KEY_ID":"...","SECRET_ACCESS_KEY":"...","ENDPOINT":"https://<account-id>.r2.cloudflarestorage.com"},"S3_Bucket":{"BUCKET_NAME":"my-s3-bucket","ACCESS_KEY_ID":"...","SECRET_ACCESS_KEY":"...","ENDPOINT":"https://s3.ap-southeast-1.amazonaws.com"}}
+```
+
+Required fields per bucket:
+
+- `BUCKET_NAME`
+- `ACCESS_KEY_ID`
+- `SECRET_ACCESS_KEY`
+- `ENDPOINT`
+
+### Common Configuration Mistakes
+
+1. Quoted inner object (invalid)
+
+```env
+BucketConnection={"R2_Bucket":"{\"BUCKET_NAME\":\"...\"}"}
+```
+
+2. Correct inner object (valid)
+
+```env
+BucketConnection={"R2_Bucket":{"BUCKET_NAME":"...","ACCESS_KEY_ID":"...","SECRET_ACCESS_KEY":"...","ENDPOINT":"https://..."}}
+```
+
+### Runtime Selection
+
+- Admin page bucket selection: `/mbkbucket?bucket=R2_Bucket`
+- Public view route `/mbkbucket/p_view/:key(*)` always uses the default bucket from `mbkautheVar.bucket`.
+
+---
+
+## Automated Tests
+
+Run tests:
+
+```bash
+npm test
+```
+
+Current tests cover:
+
+- `mbkbucketVar` parsing/defaults/boolean normalization
+- `BucketConnection` shape validation and required fields
+
+---
+
 ## Contact & Support
 
 For questions, issues, or contributions, please reach out:
