@@ -19,6 +19,9 @@ let virtualRenderLimit = 0;
 const VIRTUAL_RENDER_THRESHOLD = 500;
 const VIRTUAL_RENDER_BATCH = 250;
 let lastRenderContext = null;
+const MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'mp4', 'webm', 'ogg', 'avi', 'mov', 'mp3', 'wav', 'flac', 'aac', 'm4a']);
+const DOC_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv']);
+const CODE_EXTENSIONS = new Set(['js', 'ts', 'html', 'htm', 'css', 'php', 'py', 'java', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'rs', 'sql', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'toml', 'ini', 'conf', 'json', 'xml', 'log']);
 
 function withBucketUrl(url) {
     if (!activeBucket) return url;
@@ -72,6 +75,16 @@ function escapeAttr(value = '') {
     return escapeHtml(value);
 }
 
+function escapeJsString(value = '') {
+    return JSON.stringify(String(value || ''));
+}
+
+function getBaseName(path = '') {
+    const value = String(path || '');
+    const lastSlashIndex = value.lastIndexOf('/');
+    return lastSlashIndex === -1 ? value : value.substring(lastSlashIndex + 1);
+}
+
 function syncStateUrl(page = currentPage, prefix = currentPrefix, search = currentSearch) {
     try {
         const parts = [];
@@ -100,14 +113,10 @@ function getActiveBucketLabel() {
 }
 
 function matchesQuickFilter(fileName = '', filter = currentQuickFilter) {
-    const ext = String(fileName).split('.').pop().toLowerCase();
-    const media = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'mp4', 'webm', 'ogg', 'avi', 'mov', 'mp3', 'wav', 'flac', 'aac', 'm4a']);
-    const docs = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv']);
-    const code = new Set(['js', 'ts', 'html', 'htm', 'css', 'php', 'py', 'java', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'rs', 'sql', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'toml', 'ini', 'conf', 'json', 'xml', 'log']);
-
-    if (filter === 'media') return media.has(ext);
-    if (filter === 'docs') return docs.has(ext);
-    if (filter === 'code') return code.has(ext);
+    const ext = getBaseName(fileName).split('.').pop().toLowerCase();
+    if (filter === 'media') return MEDIA_EXTENSIONS.has(ext);
+    if (filter === 'docs') return DOC_EXTENSIONS.has(ext);
+    if (filter === 'code') return CODE_EXTENSIONS.has(ext);
     return true;
 }
 
@@ -360,7 +369,6 @@ function setQuickFilter(filter = 'all') {
 // Extract unique folders at current level
 function extractFoldersAtCurrentLevel(files, prefix) {
     const folderSet = new Set();
-    const prefixDepth = prefix ? prefix.split('/').filter(p => p).length : 0;
 
     files.forEach(file => {
         const key = file.Key;
@@ -447,6 +455,9 @@ function extractMatchingFolders(files, search) {
 // Render files table
 function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
     lastRenderContext = { files, folders, prefix, apiPrefix };
+    const normalizedPrefix = String(prefix || '').replace(/\/+$/, '');
+    const basePrefix = apiPrefix || prefix;
+    const relativeBaseOffset = basePrefix ? basePrefix.length + (basePrefix.endsWith('/') ? 0 : 1) : 0;
 
     // Determine which files/folders to show based on view mode
     let displayFiles = [];
@@ -466,7 +477,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                 // Skip folder marker objects (keys ending with /)
                 if (f.Key.endsWith('/')) return false;
                 
-                const fileName = f.Key.split('/').pop();
+                const fileName = getBaseName(f.Key);
                 return fileName.toLowerCase().includes(searchLower);
             });
 
@@ -485,8 +496,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
             // Skip folder marker objects (keys ending with /)
             if (file.Key.endsWith('/')) return false;
             
-            const basePrefix = apiPrefix || prefix;
-            const relativePath = basePrefix ? file.Key.substring(basePrefix.length + (basePrefix.endsWith('/') ? 0 : 1)) : file.Key;
+            const relativePath = basePrefix ? file.Key.substring(relativeBaseOffset) : file.Key;
             // File is at current level if it has no '/' in relative path
             return !relativePath.includes('/');
         });
@@ -495,7 +505,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
 
     // Apply quick file-type filter after mode/path filtering.
     displayFiles = displayFiles.filter((f) => {
-        const name = String(f?.Key || '').split('/').pop();
+        const name = getBaseName(f?.Key);
         return matchesQuickFilter(name, currentQuickFilter);
     });
 
@@ -505,13 +515,15 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
     // (In flat mode, the prefix acts as a base filter, but we see recursive files under it)
     if (prefix) {
         const parts = prefix.split('/').filter(p => p);
-        let breadcrumbHTML = `
+        const safeRootLabel = escapeHtml(rootLabel);
+        const safeRootTitle = escapeAttr(rootLabel);
+        const breadcrumbParts = [`
         <div class="breadcrumb-nav">
           <div class="breadcrumb-item">
             <i class="fas fa-home"></i>
-            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to ${rootLabel}">${rootLabel}</span>
+            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to ${safeRootTitle}">${safeRootLabel}</span>
           </div>
-      `;
+      `];
 
         let currentPath = '';
         parts.forEach((part, index) => {
@@ -519,36 +531,43 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
             const isLast = index === parts.length - 1;
 
             if (isLast) {
-                breadcrumbHTML += `
+                const safePart = escapeHtml(part);
+                breadcrumbParts.push(`
             <span class="breadcrumb-separator"><i class="fas fa-chevron-right"></i></span>
             <div class="breadcrumb-item">
-              <span class="breadcrumb-current">${part}</span>
+              <span class="breadcrumb-current">${safePart}</span>
             </div>
-          `;
+          `);
             } else {
                 const pathCopy = currentPath;
-                breadcrumbHTML += `
+                const safePart = escapeHtml(part);
+                const safePathTitle = escapeAttr(pathCopy);
+                const safePathArg = escapeAttr(escapeJsString(pathCopy));
+                breadcrumbParts.push(`
             <span class="breadcrumb-separator"><i class="fas fa-chevron-right"></i></span>
             <div class="breadcrumb-item">
-              <span class="breadcrumb-link" onclick="loadFiles(1, '${pathCopy}')" title="Go to ${pathCopy}">${part}</span>
+              <span class="breadcrumb-link" onclick="loadFiles(1, ${safePathArg})" title="Go to ${safePathTitle}">${safePart}</span>
             </div>
-          `;
+          `);
             }
         });
 
-        breadcrumbHTML += `</div>`;
-        breadcrumb = breadcrumbHTML;
+        breadcrumbParts.push(`</div>`);
+        breadcrumb = breadcrumbParts.join('');
     }
 
     // Generate folder rows (only used in folder mode)
         const folderRows = displayFolders.map(folderPath => {
         // Handle folder paths which typically end in a slash (e.g., "folder/subfolder/")
                 const rawFolderPath = String(folderPath || '');
-                const cleanPath = rawFolderPath.replace(/\/+$/, ''); 
-                const folderKeyForDelete = `${cleanPath}/`;
+                const cleanPath = rawFolderPath.replace(/\/+$/, '');
+                const folderPathForAction = normalizedPrefix && cleanPath && !cleanPath.startsWith(`${normalizedPrefix}/`)
+                    ? `${normalizedPrefix}/${cleanPath}`
+                    : cleanPath;
+                const folderKeyForDelete = `${folderPathForAction}/`;
         const folderName = cleanPath.split('/').pop();
                 const safeFolderName = escapeHtml(folderName);
-                const safeFolderPathAttr = escapeAttr(rawFolderPath);
+                const safeFolderPathAttr = escapeAttr(`${folderPathForAction}/`);
                 const safeFolderDeleteKeyAttr = escapeAttr(folderKeyForDelete);
         
         return `
@@ -976,7 +995,7 @@ setTimeout(() => {
 // Upload queue, drag-and-drop and multi-file support
 const uploadQueue = []; // { id, file, status, progress, controller/xhr, uploadId }
 const xhrMap = new Map();
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunk threshold
+const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB chunk threshold
 
 function createId() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9); }
 
