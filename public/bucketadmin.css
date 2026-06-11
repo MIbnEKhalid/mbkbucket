@@ -740,6 +740,9 @@
 }
 
 .breadcrumb-link {
+    background: transparent;
+    border: 0;
+    padding: 0;
     color: var(--primary-color-ml);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -2193,4 +2196,103 @@
     .dtm {
         display: block;
     }
+}
+
+.table-cell-center {
+    text-align: center;
+}
+
+.table-select-col {
+    width: 48px;
+    text-align: center;
+}
+
+.file-name-cell,
+.file-name-heading {
+    padding-left: 1.5rem;
+}
+
+.file-row-main {
+    display: flex;
+    align-items: center;
+}
+
+.folder-name {
+    font-weight: 700;
+}
+
+.folder-leading-icon {
+    margin-right: 0.5rem;
+    color: #f59e0b;
+}
+
+.muted-cell-value {
+    color: var(--gray-color-ml);
+}
+
+.path-display-icon {
+    margin-right: 4px;
+    opacity: 0.5;
+}
+
+.copy-btn {
+    color: #fff;
+}
+
+.view-btn.is-disabled {
+    opacity: 0.5;
+}
+
+.sortable-heading {
+    cursor: pointer;
+}
+
+.bulk-actions-controls {
+    float: right;
+}
+
+.toast-icon {
+    font-size: 1.25rem;
+}
+
+.toast-message {
+    flex: 1;
+}
+
+.empty-state-error-icon {
+    color: var(--danger-color-ml);
+}
+
+.empty-state-folder-icon {
+    font-size: 4rem;
+    color: #cbd5e0;
+}
+
+.upload-progress-cell {
+    min-width: 220px;
+}
+
+.upload-progress-track {
+    height: 8px;
+    margin-bottom: 6px;
+}
+
+.upload-progress-bar {
+    height: 8px;
+}
+
+.progress-bar-empty {
+    width: 0%;
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+.bucket-switcher-status:not(.is-hidden) {
+    display: inline;
+}
+
+.file-list-card-body {
+    padding: 0;
 }

@@ -28,7 +28,7 @@
             </select>
             <i class="fas fa-chevron-down bucket-switcher-caret" aria-hidden="true"></i>
           </div>
-          <small id="bucketSwitchStatus" class="bucket-switcher-status" style="display:none;">Switching bucket...</small>
+          <small id="bucketSwitchStatus" class="bucket-switcher-status is-hidden">Switching bucket...</small>
         </div>
       </div>
     </div>
@@ -65,7 +65,7 @@
                 <div class="drop-hint">Supports multiple files</div>
               </div>
             </div>
-            <input type="file" class="form-control d-none" style="display: none;" id="fileInput" name="files" multiple>
+            <input type="file" class="form-control d-none" id="fileInput" name="files" multiple>
             <div class="form-text">
               <i class="fas fa-info-circle"></i>
               You can drop multiple files. Large files will use chunked upload when available.
@@ -76,13 +76,13 @@
           <div id="uploadQueue" class="mb-3"></div>
 
           <!-- Upload Progress (global fallback) -->
-          <div id="uploadProgress" class="mb-3" style="display: none;">
+          <div id="uploadProgress" class="mb-3 is-hidden">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <span class="upload-label">Uploading...</span>
               <span id="uploadPercent" class="upload-percent">0%</span>
             </div>
             <div class="progress-container">
-              <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
+              <div id="progressBar" class="progress-bar progress-bar-empty"></div>
             </div>
             <div class="upload-details mt-2">
               <small id="uploadDetails" class="text-muted"></small>
@@ -118,36 +118,36 @@
     <!-- Inline Search (moved from separate card) -->
     <div class="search-inline">
       <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search files and folders..." aria-label="Search files">
-      <button type="button" class="btn btn-sm btn-primary" onclick="performSearch()" aria-label="Search"><i class="fas fa-search"></i></button>
-      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSearch()" aria-label="Clear search"><i class="fas fa-times"></i></button>
+      <button type="button" class="btn btn-sm btn-primary" data-action="search" aria-label="Search"><i class="fas fa-search"></i></button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-action="clear-search" aria-label="Clear search"><i class="fas fa-times"></i></button>
     </div>
 
     <div class="quick-filter-group" role="group" aria-label="Quick filters">
-      <button type="button" class="btn btn-sm quick-filter-btn active" data-filter="all" onclick="setQuickFilter('all')">All</button>
-      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="media" onclick="setQuickFilter('media')">Media</button>
-      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="docs" onclick="setQuickFilter('docs')">Docs</button>
-      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="code" onclick="setQuickFilter('code')">Code</button>
+      <button type="button" class="btn btn-sm quick-filter-btn active" data-filter="all">All</button>
+      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="media">Media</button>
+      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="docs">Docs</button>
+      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="code">Code</button>
     </div>
 
     <div class="btn-group" role="group" aria-label="Actions">
-      <button type="button" class="btn btn-sm btn-success" onclick="createFile()" title="New Text File">
+      <button type="button" class="btn btn-sm btn-success" data-action="create-file" title="New Text File">
         <i class="fas fa-file-alt"></i> New File
       </button>
-      <button type="button" class="btn btn-sm btn-outline-success" onclick="createFolder()" title="New Folder">
+      <button type="button" class="btn btn-sm btn-outline-success" data-action="create-folder" title="New Folder">
         <i class="fas fa-folder-plus"></i> New Folder
       </button>
     </div>
 
     <div class="btn-group" role="group" aria-label="View Mode">
-      <button type="button" class="btn btn-sm btn-light view-toggle-btn view-btn-left active" id="viewBtnFolder" onclick="changeViewMode('folder')" title="Folder View">
+      <button type="button" class="btn btn-sm btn-light view-toggle-btn view-btn-left active" id="viewBtnFolder" data-view-mode="folder" title="Folder View">
         <i class="fas fa-folder"></i> Folders
       </button>
-      <button type="button" class="btn btn-sm btn-outline-light view-toggle-btn view-btn-right" id="viewBtnFlat" onclick="changeViewMode('flat')" title="Flat List (All Files)">
+      <button type="button" class="btn btn-sm btn-outline-light view-toggle-btn view-btn-right" id="viewBtnFlat" data-view-mode="flat" title="Flat List (All Files)">
         <i class="fas fa-list-ul"></i> Flat View
       </button>
     </div>
   </div>
-  <div class="card-body" style="padding: 0;">
+  <div class="card-body file-list-card-body">
     <div id="fileListContainer">
       {{> bucketadmin_filelist_skeleton }}
     </div>

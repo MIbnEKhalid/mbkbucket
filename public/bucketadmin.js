@@ -75,14 +75,18 @@ function escapeAttr(value = '') {
     return escapeHtml(value);
 }
 
-function escapeJsString(value = '') {
-    return JSON.stringify(String(value || ''));
-}
-
 function getBaseName(path = '') {
     const value = String(path || '');
     const lastSlashIndex = value.lastIndexOf('/');
     return lastSlashIndex === -1 ? value : value.substring(lastSlashIndex + 1);
+}
+
+function dataAttr(name, value = '') {
+    return `data-${name}="${escapeAttr(value)}"`;
+}
+
+function mutedDash() {
+    return '<span class="muted-cell-value">&mdash;</span>';
 }
 
 function syncStateUrl(page = currentPage, prefix = currentPrefix, search = currentSearch) {
@@ -164,9 +168,9 @@ function showAlert(message, type = 'success') {
     `;
 
     toast.innerHTML = `
-        <i class="fas ${isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'}" style="font-size: 1.25rem;"></i>
-        <div style="flex: 1;">${message}</div>
-        <button onclick="this.parentElement.remove()" class="toast-close-btn">&times;</button>
+        <i class="fas ${isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'} toast-icon"></i>
+        <div class="toast-message">${message}</div>
+        <button type="button" data-action="close-toast" class="toast-close-btn">&times;</button>
     `;
 
     container.appendChild(toast);
@@ -268,7 +272,7 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
             <i class="fas fa-folder-open"></i>
             <h4>No files found</h4>
                         <p>Bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong> is empty. Upload some files to get started!</p>
-            <button class="btn btn-lg" onclick="document.getElementById('fileInput').click()">
+            <button class="btn btn-lg" data-action="upload-files">
               <i class="fas fa-plus"></i> Upload Your First File
             </button>
           </div>
@@ -296,10 +300,10 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
         console.error('Error loading files:', error);
         container.innerHTML = `
         <div class="empty-state">
-          <i class="fas fa-exclamation-triangle" style="color: var(--danger-color-ml);"></i>
+          <i class="fas fa-exclamation-triangle empty-state-error-icon"></i>
           <h4>Error Loading Files</h4>
                     <p>Bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong>: ${escapeHtml(error.message)}</p>
-          <button class="btn btn-primary" onclick="loadFiles(${page}, '${prefix}')">
+          <button class="btn btn-primary" data-action="retry-load" ${dataAttr('retry-page', page)} ${dataAttr('retry-prefix', prefix)}>
             <i class="fas fa-redo"></i> Retry
           </button>
         </div>
@@ -328,8 +332,8 @@ function toggleSort(field) {
                 valA = new Date(a.LastModified || 0).getTime();
                 valB = new Date(b.LastModified || 0).getTime();
             } else {
-                valA = (a.Key || '').split('/').pop().toLowerCase();
-                valB = (b.Key || '').split('/').pop().toLowerCase();
+                valA = getBaseName(a.Key).toLowerCase();
+                valB = getBaseName(b.Key).toLowerCase();
             }
 
             if (valA < valB) return currentOrder === 'asc' ? -1 : 1;
@@ -521,7 +525,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
         <div class="breadcrumb-nav">
           <div class="breadcrumb-item">
             <i class="fas fa-home"></i>
-            <span class="breadcrumb-link" onclick="loadFiles(1, '')" title="Go to ${safeRootTitle}">${safeRootLabel}</span>
+            <button type="button" class="breadcrumb-link" ${dataAttr('nav-prefix', '')} title="Go to ${safeRootTitle}">${safeRootLabel}</button>
           </div>
       `];
 
@@ -542,11 +546,10 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                 const pathCopy = currentPath;
                 const safePart = escapeHtml(part);
                 const safePathTitle = escapeAttr(pathCopy);
-                const safePathArg = escapeAttr(escapeJsString(pathCopy));
                 breadcrumbParts.push(`
             <span class="breadcrumb-separator"><i class="fas fa-chevron-right"></i></span>
             <div class="breadcrumb-item">
-              <span class="breadcrumb-link" onclick="loadFiles(1, ${safePathArg})" title="Go to ${safePathTitle}">${safePart}</span>
+              <button type="button" class="breadcrumb-link" ${dataAttr('nav-prefix', pathCopy)} title="Go to ${safePathTitle}">${safePart}</button>
             </div>
           `);
             }
@@ -565,24 +568,24 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                     ? `${normalizedPrefix}/${cleanPath}`
                     : cleanPath;
                 const folderKeyForDelete = `${folderPathForAction}/`;
-        const folderName = cleanPath.split('/').pop();
+        const folderName = getBaseName(cleanPath);
                 const safeFolderName = escapeHtml(folderName);
                 const safeFolderPathAttr = escapeAttr(`${folderPathForAction}/`);
                 const safeFolderDeleteKeyAttr = escapeAttr(folderKeyForDelete);
         
         return `
                 <tr class="folder-row" data-folder-path="${safeFolderPathAttr}" title="Open folder: ${safeFolderName}">
-          <td style="text-align:center;">
+          <td class="table-cell-center">
             <!-- no selection for folders -->
           </td>
-          <td style="padding-left: 1.5rem;">
-            <div style="display: flex; align-items: center;">
+          <td class="file-name-cell">
+            <div class="file-row-main">
               <div class="file-icon">
                 <i class="fas fa-folder"></i>
               </div>
               <div class="file-info">
-                <div class="file-name" style="font-weight: 700;">
-                                    <i class="fas fa-folder" style="margin-right: 0.5rem; color: #f59e0b;"></i>${safeFolderName}/
+                <div class="file-name folder-name">
+                                    <i class="fas fa-folder folder-leading-icon"></i>${safeFolderName}/
                 </div>
               </div>              
                             <button type="button" class="btn btn-danger btn-sm delete-btn dtm" data-key="${safeFolderDeleteKeyAttr}" data-is-folder="true" title="Delete folder">
@@ -591,12 +594,12 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
             </div>
           </td>
           <td>
-            <span style="color: var(--gray-color-ml);">\u2014</span>
+            ${mutedDash()}
           </td>
-          <td style="text-align: center;">
-            <span style="color: var(--gray-color-ml);">\u2014</span>
+          <td class="table-cell-center">
+            ${mutedDash()}
           </td>
-          <td style="text-align: center;">
+          <td class="table-cell-center">
             <div class="btn-group" role="group">
                             <button type="button" class="btn btn-danger btn-sm delete-btn" data-key="${safeFolderDeleteKeyAttr}" data-is-folder="true" title="Delete folder">
                 <i class="fas fa-trash"></i>
@@ -639,21 +642,23 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                 const safeFilename = escapeHtml(filename);
                 const safeTruncatedName = escapeHtml(truncatedName);
                 const safeFolderPath = escapeHtml(folderPath);
+                const viewButtonClass = isFileViewable ? 'btn btn-primary btn-sm view-btn' : 'btn btn-primary btn-sm view-btn is-disabled';
+                const viewButtonDisabled = isFileViewable ? '' : 'disabled';
 
         // If in flat mode, we might want to show the folder path more prominently
         const pathDisplay = (currentViewMode === 'flat' && folderPath && folderPath !== prefix + (prefix ? '/' : ''))
             ? `<div class="file-path-display">
-                         <i class="fas fa-folder" style="margin-right:4px; opacity:0.5;"></i> ${safeFolderPath}
+                         <i class="fas fa-folder path-display-icon"></i> ${safeFolderPath}
            </div>`
             : '';
 
         return `
         <tr class="file-row">
-          <td style="text-align:center;">
+          <td class="table-cell-center">
                         <input type="checkbox" class="selectFileCheckbox" data-key="${safeKeyAttr}" aria-label="Select ${safeKeyAttr}" />
           </td>
-          <td style="padding-left: 1.5rem;">
-            <div style="display: flex; align-items: center;">
+          <td class="file-name-cell">
+            <div class="file-row-main">
               <div class="file-icon ${typeCategory}">
                 <i class="${iconClass}"></i>
               </div>
@@ -664,18 +669,18 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
             </div>
           </td>
           <td>
-            ${file.Size ? `<span class="file-size">${formatFileSize(file.Size)}</span>` : '<span style="color: var(--gray-color-ml);">N/A</span>'}
+            ${file.Size ? `<span class="file-size">${formatFileSize(file.Size)}</span>` : '<span class="muted-cell-value">N/A</span>'}
           </td>
           <td>
-            ${file.LastModified ? `<span style="color: var(--gray-color-ml);">${formatDate(file.LastModified)}</span>` : '<span style="color: var(--gray-color-ml);">N/A</span>'}
+            ${file.LastModified ? `<span class="muted-cell-value">${formatDate(file.LastModified)}</span>` : '<span class="muted-cell-value">N/A</span>'}
           </td>
-          <td style="text-align: center;">
+          <td class="table-cell-center">
             <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-primary btn-sm view-btn" data-key="${safeKeyAttr}" data-filename="${safeKeyAttr}"
-                data-key-enc="${encodedKey}" title="${isFileViewable ? 'View file in browser' : 'File type not supported for viewing'}" ${!isFileViewable ? 'disabled style="opacity:0.5"' : ''}>
+                            <button type="button" class="${viewButtonClass}" data-key="${safeKeyAttr}" data-filename="${safeKeyAttr}"
+                data-key-enc="${encodedKey}" title="${isFileViewable ? 'View file in browser' : 'File type not supported for viewing'}" ${viewButtonDisabled}>
                 <i class="fas fa-eye"></i>
               </button>
-              <button type="button" class="btn btn-info btn-sm copy-btn" data-key-enc="${encodedKey}" title="Copy Link" style="color:white;">
+              <button type="button" class="btn btn-info btn-sm copy-btn" data-key-enc="${encodedKey}" title="Copy Link">
                 <i class="fas fa-link"></i>
               </button>
                             <a href="${getDownloadUrl(encodedKey)}" class="btn btn-success btn-sm"
@@ -698,7 +703,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                 ${breadcrumb}
         <div class="empty-state">
           <div class="empty-state-illustration">
-            <i class="fas fa-folder-open" style="font-size: 4rem; color: #cbd5e0;"></i>
+            <i class="fas fa-folder-open empty-state-folder-icon"></i>
             <i class="fas fa-search empty-state-search-icon"></i>
           </div>
           <h4>No files found</h4>
@@ -706,13 +711,13 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                         ${prefix ? `This folder <strong>${escapeHtml(prefix)}</strong> is currently empty in bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong>.` : `Bucket <strong>${escapeHtml(getActiveBucketLabel())}</strong> is empty. Start by uploading files or creating a new folder.`}
           </p>
           <div class="empty-state-actions">
-            <button class="btn btn-primary" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); document.getElementById('fileInput').click()">
+            <button class="btn btn-primary" data-action="upload-files">
               <i class="fas fa-cloud-upload-alt"></i> Upload Files
             </button>
-            <button class="btn btn-outline-secondary" onclick="createFolder()">
+            <button class="btn btn-outline-secondary" data-action="create-folder">
               <i class="fas fa-folder-plus"></i> New Folder
             </button>
-                        ${prefix ? `<button class="btn btn-light" onclick="loadFiles(1, '')">
+                        ${prefix ? `<button class="btn btn-light" data-action="go-root">
                             <i class="fas fa-home"></i> Go to ${rootLabel}
             </button>` : ''}
           </div>
@@ -733,7 +738,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
                 ? `<div class="virtualized-info">
                         <span>Showing ${visibleFiles.length} of ${displayFiles.length} files in this view.</span>
                         <div class="virtualized-actions">
-                            ${visibleFiles.length < displayFiles.length ? '<button class="btn btn-sm btn-outline-secondary" onclick="expandVirtualRows()">Load more</button>' : ''}
+                            ${visibleFiles.length < displayFiles.length ? '<button class="btn btn-sm btn-outline-secondary" data-action="expand-virtual">Load more</button>' : ''}
                         </div>
                     </div>`
                 : '';
@@ -743,7 +748,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
       <div class="table-responsive">
         <div id="bulkActionsBar" class="bulk-actions-bar">
           <span id="bulkSelectedCount">0 selected</span>
-          <div style="float: right;">
+          <div class="bulk-actions-controls">
             <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>
               <i class="fas fa-trash"></i> Delete Selected
             </button>
@@ -752,19 +757,19 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th style="width:48px; text-align:center;">
+              <th class="table-select-col">
                 <input type="checkbox" id="selectAllCheckbox" aria-label="Select all files" />
               </th>
-              <th style="padding-left: 1.5rem; cursor: pointer;" onclick="toggleSort('name')">
+              <th class="sortable-heading file-name-heading" data-sort-field="name">
                 <i class="fas fa-file-alt"></i> Name ${getSortIcon('name')}
               </th>
-              <th style="cursor: pointer;" onclick="toggleSort('size')">
+              <th class="sortable-heading" data-sort-field="size">
                 <i class="fas fa-weight"></i> Size ${getSortIcon('size')}
               </th> 
-              <th style="cursor: pointer;" onclick="toggleSort('date')">
+              <th class="sortable-heading" data-sort-field="date">
                 <i class="fas fa-calendar"></i> Last Modified ${getSortIcon('date')}
               </th>
-              <th style="text-align: center;">
+              <th class="table-cell-center">
                 <i class="fas fa-cogs"></i> Actions
               </th>
             </tr>
@@ -786,6 +791,17 @@ function renderPagination(data) {
     const { currentPage, totalPages, hasPrevPage, hasNextPage, mode } = data;
 
     let paginationHTML = '';
+    const pageLink = (page, label, extra = {}) => {
+        const attrs = [
+            dataAttr('page', page),
+            dataAttr('prefix', currentPrefix),
+            dataAttr('search', currentSearch),
+            dataAttr('sort', extra.sort || currentSort),
+            dataAttr('order', extra.order || currentOrder)
+        ];
+        if (extra.token) attrs.push(dataAttr('token', extra.token));
+        return `<a class="page-link" href="#" ${attrs.join(' ')}>${label}</a>`;
+    };
 
     if (mode === 'optimized') {
         // Optimized Mode: Token-based pagination (Next only, limited Prev)
@@ -808,13 +824,9 @@ function renderPagination(data) {
 
       // Next button
       if (hasNextPage) {
-          // Quote the token correctly
-          const tokenStr = currentNextToken ? currentNextToken.replace(/'/g, "\\'") : "";
           paginationHTML += `
           <li class="page-item">
-            <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage + 1}, '${currentPrefix}', '${currentSearch}', '${currentSort}', '${currentOrder}', '${tokenStr}')">
-              Next <i class="fas fa-chevron-right"></i>
-            </a>
+            ${pageLink(currentPage + 1, 'Next <i class="fas fa-chevron-right"></i>', { token: currentNextToken || '' })}
           </li>
         `;
       } else {
@@ -834,9 +846,7 @@ function renderPagination(data) {
         if (hasPrevPage) {
             paginationHTML += `
             <li class="page-item">
-              <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage - 1}, '${currentPrefix}', '${currentSearch}')">
-                <i class="fas fa-chevron-left"></i> Previous
-              </a>
+              ${pageLink(currentPage - 1, '<i class="fas fa-chevron-left"></i> Previous')}
             </li>
           `;
         } else {
@@ -862,7 +872,7 @@ function renderPagination(data) {
         if (startPage > 1) {
              paginationHTML += `
             <li class="page-item">
-                <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(1, '${currentPrefix}', '${currentSearch}')">1</a>
+                ${pageLink(1, '1')}
             </li>`;
             if (startPage > 2) {
                  paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
@@ -879,7 +889,7 @@ function renderPagination(data) {
             } else {
                 paginationHTML += `
               <li class="page-item">
-                <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${i}, '${currentPrefix}', '${currentSearch}')">${i}</a>
+                ${pageLink(i, String(i))}
               </li>
             `;
             }
@@ -892,7 +902,7 @@ function renderPagination(data) {
             }
             paginationHTML += `
             <li class="page-item">
-                <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${totalPages}, '${currentPrefix}', '${currentSearch}')">${totalPages}</a>
+                ${pageLink(totalPages, String(totalPages))}
             </li>`;
         }
 
@@ -900,9 +910,7 @@ function renderPagination(data) {
         if (hasNextPage) {
             paginationHTML += `
             <li class="page-item">
-              <a class="page-link" href="#" onclick="event.preventDefault(); loadFiles(${currentPage + 1}, '${currentPrefix}', '${currentSearch}')">
-                Next <i class="fas fa-chevron-right"></i>
-              </a>
+              ${pageLink(currentPage + 1, 'Next <i class="fas fa-chevron-right"></i>')}
             </li>
           `;
         } else {
@@ -1049,9 +1057,9 @@ function renderUploadQueue() {
             <div class="form-text file-size upload-item-size-label">${formatFileSize(item.file.size)}</div>
           </div>
         </div>
-        <div style="min-width:220px;">
-          <div class="progress-container" style="height: 8px; margin-bottom: 6px;">
-            <div class="progress-bar" style="width: ${Math.round(item.progress)}%; height: 8px;"></div>
+        <div class="upload-progress-cell">
+          <div class="progress-container upload-progress-track">
+            <div class="progress-bar upload-progress-bar" style="width: ${Math.round(item.progress)}%;"></div>
           </div>
           <div class="upload-item-status-row">
             <small class="text-muted status">${statusText}</small>
@@ -1345,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             this.disabled = true;
             this.setAttribute('aria-busy', 'true');
-            if (bucketSwitchStatusEl) bucketSwitchStatusEl.style.display = 'inline';
+            bucketSwitchStatusEl?.classList.remove('is-hidden');
 
             const qs = nextParams.toString();
             window.location.href = `/mbkbucket${qs ? `?${qs}` : ''}`;
@@ -1403,6 +1411,70 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Delegate view and delete button clicks to avoid inline JS with unescaped data
     document.addEventListener('click', function (e) {
+        const actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+            const action = actionBtn.dataset.action;
+            if (action === 'upload-files') {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                document.getElementById('fileInput')?.click();
+            } else if (action === 'create-folder') {
+                createFolder();
+            } else if (action === 'create-file') {
+                createFile();
+            } else if (action === 'go-root') {
+                loadFiles(1, '');
+            } else if (action === 'expand-virtual') {
+                expandVirtualRows();
+            } else if (action === 'search') {
+                performSearch();
+            } else if (action === 'clear-search') {
+                clearSearch();
+            } else if (action === 'retry-load') {
+                loadFiles(parseInt(actionBtn.dataset.retryPage, 10) || 1, actionBtn.dataset.retryPrefix || '');
+            } else if (action === 'close-toast') {
+                actionBtn.closest('.toast-notification')?.remove();
+            }
+            return;
+        }
+
+        const quickFilterBtn = e.target.closest('[data-filter]');
+        if (quickFilterBtn) {
+            setQuickFilter(quickFilterBtn.dataset.filter || 'all');
+            return;
+        }
+
+        const viewModeBtn = e.target.closest('[data-view-mode]');
+        if (viewModeBtn) {
+            changeViewMode(viewModeBtn.dataset.viewMode);
+            return;
+        }
+
+        const navBtn = e.target.closest('[data-nav-prefix]');
+        if (navBtn) {
+            loadFiles(1, navBtn.dataset.navPrefix || '');
+            return;
+        }
+
+        const sortHeader = e.target.closest('[data-sort-field]');
+        if (sortHeader) {
+            toggleSort(sortHeader.dataset.sortField);
+            return;
+        }
+
+        const pageLink = e.target.closest('.page-link[data-page]');
+        if (pageLink) {
+            e.preventDefault();
+            loadFiles(
+                parseInt(pageLink.dataset.page, 10) || 1,
+                pageLink.dataset.prefix || '',
+                pageLink.dataset.search || '',
+                pageLink.dataset.sort || currentSort,
+                pageLink.dataset.order || currentOrder,
+                pageLink.dataset.token || ''
+            );
+            return;
+        }
+
         const folderRow = e.target.closest('.folder-row');
         if (folderRow && !e.target.closest('.delete-btn')) {
             const folderPath = folderRow.dataset.folderPath;

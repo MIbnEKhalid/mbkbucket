@@ -9,11 +9,14 @@ import rateLimit from 'express-rate-limit';
 import bucketRoutes from "./lib/routes/index.js";
 import { checkVersion } from "./lib/config/index.js";
 import { packageJson } from "./lib/config/index.js";
+import { createLogger } from "./lib/debug.js";
 
 dotenv.config();
+const debugServer = createLogger('server');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const isDevMode = process.env.NODE_ENV === "dev";
 
 const server = express();
 server.set('trust proxy', 1);
@@ -89,11 +92,8 @@ server.set("views", [
 server.use(mbkautheRoutes);
 server.use(generalLimiter);
 server.use(bucketRoutes);
-
-if (process.env.mbkbucket_test === "dev") {
-
-  console.log("[mbkbucket] Dev mode is enabled. Starting server in dev mode.");
-
+if (isDevMode) {
+  debugServer("Dev mode is enabled. Starting server in dev mode.");
 
   // Request timing middleware: logs method, url, status and elapsed ms
   server.use((req, res, next) => {
@@ -101,7 +101,7 @@ if (process.env.mbkbucket_test === "dev") {
     res.on('finish', () => {
       const diff = process.hrtime(start);
       const ms = diff[0] * 1000 + diff[1] / 1e6;
-      console.log(`[mbkbucket] [${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} - ${ms.toFixed(3)} ms`);
+      debugServer("[%s] %s %s %s - %s ms", new Date().toISOString(), req.method, req.originalUrl, res.statusCode, ms.toFixed(3));
     });
     next();
   });
@@ -112,7 +112,7 @@ if (process.env.mbkbucket_test === "dev") {
 
   // 404 handler
   server.use((req, res) => {
-    console.log(`[mbkbucket] Path not found: ${req.method} ${req.url}`);
+    debugServer("Path not found: %s %s", req.method, req.url);
     return res.status(404).render("Error/dError.handlebars", {
       layout: false,
       code: 404,
@@ -138,8 +138,8 @@ if (process.env.mbkbucket_test === "dev") {
   });
 
   const port = process.env.PORT || 3004;
-  server.listen(port, async () => {
-    console.log(`[mbkbucket] Server running on http://localhost:${port}`);
+  server.listen(port, async() => {
+    debugServer("Server running on http://localhost:%s", port);
   });
 
 }
