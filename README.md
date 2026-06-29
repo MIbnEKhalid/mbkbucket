@@ -4,7 +4,7 @@ S3 Bucket manager for Node.js applications with Express integration.
 
 [![Version](https://img.shields.io/npm/v/mbkbucket.svg)](https://www.npmjs.com/package/mbkbucket)
 [![Downloads](https://img.shields.io/npm/dm/mbkbucket.svg)](https://www.npmjs.com/package/mbkbucket)
-[![License](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-LGPL--3.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Publish Status](https://github.com/MIbnEKhalid/mbkbucket/actions/workflows/publish.yml/badge.svg)](https://github.com/MIbnEKhalid/mbkbucket/actions/workflows/publish.yml)
 
@@ -72,6 +72,7 @@ For complete API documentation, refer to the TypeScript declarations in [index.d
 - Node.js >= 14.0.0
 - AWS S3 credentials configured
 - AWS SDK v3 compatible environment
+- mbkauthe package for authentication and authorization
 
 ---
 
@@ -86,12 +87,12 @@ The package validates both `mbkbucketVar` and `BucketConnection` at startup.
 Example:
 
 ```env
-mbkautheVar={"APP_NAME":"portal","loginRedirectURL":"/dashboard","bucket":"R2_Bucket"}
+mbkautheVar={"APP_NAME":"mbkbucket","loginRedirectURL":"/dashboard","bucket":"R2_Bucket"}
 ```
 
 Notes:
 
-- If `APP_NAME` is `portal`, mbkbucket works from bucket root (no `portal/` folder prefix).
+- If `APP_NAME` is `portal` or `mbkbucket`, mbkbucket works from bucket root (no `portal/` folder prefix).
 - If `bucket` is missing, mbkbucket falls back to the first bucket key in `BucketConnection`.
 
 ### 2 `BucketConnection`
@@ -166,4 +167,4 @@ Part of [MBK Tech Studio](https://mbktech.org/)
 
 ## License
 
-Licensed under the GPL-2.0 License. See [LICENSE](LICENSE) file for details.
+Licensed under the LGPL-3.0-only License. See [LICENSE](LICENSE) file for details.

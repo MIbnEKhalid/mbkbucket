@@ -12,8 +12,8 @@ let currentApiPrefix = '';
 const bucketAppName = document.getElementById('bucketAppData')?.dataset.appName || '';
 const selectedBucket = new URLSearchParams(window.location.search).get('bucket') || '';
 let activeBucket = selectedBucket;
-const isRootApp = String(bucketAppName || '').toLowerCase() === 'portal';
-const rootLabel = isRootApp ? 'root' : (bucketAppName || 'app');
+const app = String(bucketAppName || '').toLowerCase();
+const isRootApp = app === 'portal' || app === 'mbkbucket';const rootLabel = isRootApp ? 'root' : (bucketAppName || 'app');
 let currentQuickFilter = 'all';
 let virtualRenderLimit = 0;
 const VIRTUAL_RENDER_THRESHOLD = 500;
@@ -297,6 +297,9 @@ async function loadFiles(page = 1, prefix = '', search = '', sort = currentSort,
             paginationContainer.style.display = 'block';
         }
     } catch (error) {
+        console.error("app: ", app);
+        console.error("isRootApp: ", isRootApp, "rootLabel: ", rootLabel);
+        console.error("bucketAppName : ", bucketAppName);
         console.error('Error loading files:', error);
         container.innerHTML = `
         <div class="empty-state">
