@@ -1,83 +1,41 @@
-import express from "express";
-import { sessRole,  } from "mbkauthe";
-import { listfiles, uploadFile, deleteFile, deleteFiles, deleteFolder, downloadFile, getFileMetadata, fileExists, ensureKeyHasAppPrefix, ensurePrefix, getAppName, createMultipartUpload, uploadPart, completeMultipartUpload, abortMultipartUpload, listIncompleteMultipartUploads, cleanupIncompleteMultipartUploads } from "../s3.js";
-import multer from "multer";
-import { createLogger } from "../debug.js";
+import { pipeline } from "stream/promises";
+import {
+  listfiles, uploadFile, deleteFile, deleteFiles, deleteFolder,
+  downloadFile, getFileMetadata, fileExists,
+  ensureKeyHasAppPrefix, ensurePrefix, getAppName,
+  createMultipartUpload, uploadPart, completeMultipartUpload,
+  abortMultipartUpload, listIncompleteMultipartUploads,
+  cleanupIncompleteMultipartUploads
+} from "../services/s3.service.js";
+import { sendApiError, classifyApiError } from "../utils/errors.js";
+import { getBaseName } from "../utils/helpers.js";
+import { createLogger } from "../utils/logger.js";
 
-const router = express.Router();
 const debugApi = createLogger('api');
 
-function classifyApiError(error, fallbackMessage = 'Request failed') {
-  const message = String(error?.message || fallbackMessage);
-  const lower = message.toLowerCase();
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-  if (lower.includes('bucketconnection environment variable is not set')) {
-    return { status: 503, code: 'BUCKET_CONFIG_ERROR', message };
+/**
+ * Resolve & validate a prefix from request input. Returns the effective prefix
+ * or sends a 400 JSON error response (and returns null).
+ */
+function resolvePrefix(req, res, prefix) {
+  try {
+    return ensurePrefix(prefix);
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+    return null;
   }
-  if (lower.includes('no bucket selected') || lower.includes('not found in bucketconnection')) {
-    return { status: 400, code: 'INVALID_BUCKET', message };
-  }
-  if (lower.includes('already exists')) {
-    return { status: 409, code: 'CONFLICT', message };
-  }
-  if (lower.includes('not found')) {
-    return { status: 404, code: 'NOT_FOUND', message };
-  }
-  if (lower.includes('access denied')) {
-    return { status: 403, code: 'ACCESS_DENIED', message };
-  }
-  if (lower.includes('required') || lower.includes('invalid') || lower.includes('must be')) {
-    return { status: 400, code: 'VALIDATION_ERROR', message };
-  }
-  return { status: 500, code: 'INTERNAL_ERROR', message };
 }
 
-function sendApiError(res, error, fallbackMessage = 'Request failed') {
-  const mapped = classifyApiError(error, fallbackMessage);
-  return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
+/**
+ * Build a full S3 key from a prefix and filename, stripping trailing slashes.
+ */
+function buildKey(prefix, fileName) {
+  return `${prefix.replace(/\/+$/, '')}/${fileName}`;
 }
-
-function getBaseName(path = '') {
-  const value = String(path || '');
-  const lastSlashIndex = value.lastIndexOf('/');
-  return lastSlashIndex === -1 ? value : value.substring(lastSlashIndex + 1);
-}
-
-// Central bucket guard for all API routes under /mbkbucket
-router.use((req, res, next) => {
-  if (req.bucketResolveError) {
-    return sendApiError(res, req.bucketResolveError, 'Invalid bucket selection');
-  }
-  if (!req.activeBucket) {
-    return sendApiError(res, new Error('No bucket selected. Provide ?bucket=<name> or configure a default bucket in mbkautheVar.bucket.'));
-  }
-  next();
-});
-
-// This is the maximum size we allow per file part. The dashboard uses the same
-// size as its single-upload threshold and multipart chunk size.
-const MAX_CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_CHUNK_SIZE }
-});
-
-const uploadChunk = (req, res, next) => {
-  upload.single('chunk')(req, res, (err) => {
-    if (err) {
-      // Multer throws an error if the file is too large (or another multipart parsing issue occurs)
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({
-          success: false,
-          error: `Chunk too large (max ${Math.round(MAX_CHUNK_SIZE / (1024 * 1024))} MB).`,
-        });
-      }
-      return next(err);
-    }
-    next();
-  });
-};
 
 async function cleanupFolderMarker(folderPath, bucketName) {
   if (!folderPath) return;
@@ -93,13 +51,15 @@ async function cleanupFolderMarker(folderPath, bucketName) {
   }
 }
 
-// API endpoint for multipart upload cleanup
-router.post('/api/cleanup-uploads', sessRole('SuperAdmin'), async (req, res) => {
+// ---------------------------------------------------------------------------
+// Controller handlers
+// ---------------------------------------------------------------------------
+
+export async function cleanupUploads(req, res) {
   try {
     const { olderThanDays = 7, prefix = '' } = req.body;
     const bucketName = req.activeBucket;
 
-    // Validate olderThanDays
     const days = parseInt(olderThanDays, 10);
     if (isNaN(days) || days < 1) {
       return res.status(400).json({ success: false, error: 'olderThanDays must be a positive integer' });
@@ -117,10 +77,9 @@ router.post('/api/cleanup-uploads', sessRole('SuperAdmin'), async (req, res) => 
     console.error('[mbkbucket] Cleanup failed:', error);
     return sendApiError(res, error, 'Cleanup failed');
   }
-});
+}
 
-// API endpoint to list incomplete multipart uploads
-router.get('/api/incomplete-uploads', sessRole('SuperAdmin'), async (req, res) => {
+export async function listIncompleteUploads(req, res) {
   try {
     const { prefix = '' } = req.query;
     const bucketName = req.activeBucket;
@@ -140,71 +99,52 @@ router.get('/api/incomplete-uploads', sessRole('SuperAdmin'), async (req, res) =
     console.error('[mbkbucket] Failed to list incomplete uploads:', error);
     return sendApiError(res, error, 'Failed to list incomplete uploads');
   }
-});
+}
 
-// API endpoint for fetching files
-router.get('/api/files', sessRole('SuperAdmin'), async (req, res) => {
+export async function listFiles(req, res) {
   const { prefix = '', page = '1', search = '', recursive = 'true', token = '' } = req.query;
   const pageSize = 100;
   const bucketName = req.activeBucket;
-  let effectivePrefix;
-  try {
-    effectivePrefix = ensurePrefix(prefix);
-  } catch (e) {
-    return res.status(400).json({ success: false, error: e.message });
-  }
 
-  // Determine mode: Optimized (Folder View, No Search) vs Legacy/Deep (Flat View or Search)
+  const effectivePrefix = resolvePrefix(req, res, prefix);
+  if (effectivePrefix === null) return;
+
   const isSearch = search && search.trim().length > 0;
-  // If recursive is explicitly 'false', we respect it. Default to true if missing (though frontend should send it)
-  // Logic: Optimization works only if NOT recursive and NOT searching.
   const isRecursive = recursive === 'true';
   const useOptimizedListing = !isSearch && !isRecursive;
 
   try {
     let files = [];
-    let folders = []; // For CommonPrefixes (subfolders)
+    let folders = [];
     let nextContinuationToken = null;
     let usedPrefix = effectivePrefix;
     let legacyFallback = false;
 
     if (useOptimizedListing) {
-      // --- OPTIMIZED PATH: S3 Delimiter (Folder View) ---
-      // We process only one page from S3. This reduces API calls significantly.
-
-      // FIX: Ensure root listing uses trailing slash to prevent "app-name" matching "app-name-backup"
-      // and ensure directory browsing works correctly if ensurePrefix didn't append slash (which it now does if present in input).
-      // But for root, input is empty, ensurePrefix returns "app", so we force "app/" here.
       let listPrefix = effectivePrefix;
       if (listPrefix === getAppName() && !listPrefix.endsWith('/')) {
         listPrefix += '/';
       }
 
       const result = await listfiles(listPrefix, {
-        continuationToken: token || undefined, // Use token from query if provided
+        continuationToken: token || undefined,
         delimiter: '/',
-        maxKeys: 1000, // Fetch a healthy batch.
+        maxKeys: 1000,
         bucketName
       });
 
-      // Filter out folder marker objects (zero-byte files ending with /)
       files = (result.Contents || []).filter(f => !f.Key.endsWith('/'));
-      // S3 returns CommonPrefixes for folders when delimiter is used
       folders = (result.CommonPrefixes || [])
         .filter(p => p.Prefix !== effectivePrefix)
         .map(p => p.Prefix);
       nextContinuationToken = result.NextContinuationToken;
 
-      // Note: In optimized mode, totalFiles is unknown without scanning everything.
     } else {
-      // --- LEGACY PATH: Recursive Scan (Search or Flat View) ---
       let continuationToken = undefined;
 
-      // Fetch all files recursively (handling S3 pagination)
       do {
         const result = await listfiles(effectivePrefix, { continuationToken, bucketName });
         if (result.Contents?.length) {
-          // Filter out folder marker objects (zero-byte files ending with /)
           for (const file of result.Contents) {
             if (!file.Key.endsWith('/')) files.push(file);
           }
@@ -212,7 +152,6 @@ router.get('/api/files', sessRole('SuperAdmin'), async (req, res) => {
         continuationToken = result.nextToken;
       } while (continuationToken);
 
-      // If no files found under the app prefixed path, try root as a legacy fallback
       if (!files.length && !search) {
         try {
           const rootResult = await listfiles('', { bucketName });
@@ -226,34 +165,29 @@ router.get('/api/files', sessRole('SuperAdmin'), async (req, res) => {
         }
       }
 
-      // Apply search filter if provided
       if (isSearch) {
         const searchLower = search.trim().toLowerCase();
         files = files.filter(file => file.Key.toLowerCase().includes(searchLower));
       }
     }
 
-    // Response Construction
     if (useOptimizedListing) {
       res.json({
         success: true,
-        files: files,
-        folders: folders,
+        files,
+        folders,
         prefix: effectivePrefix,
-        search: search,
-        // In optimized mode, we use token-based pagination, not page numbers
+        search,
         currentPage: 1,
-        totalPages: 1, // Always 1 since we use continuation tokens instead
+        totalPages: 1,
         hasNextPage: !!nextContinuationToken,
-        hasPrevPage: false, // Token-based pagination doesn't support backwards navigation
-        nextContinuationToken: nextContinuationToken,
+        hasPrevPage: false,
+        nextContinuationToken,
         mode: 'optimized',
-        totalFiles: -1, // Unknown in optimized mode without full scan
-        paginationType: 'continuation-token' // Indicate the type of pagination
+        totalFiles: -1,
+        paginationType: 'continuation-token'
       });
-
     } else {
-      // Legacy Pagination Logic (In-Memory)
       const totalFiles = files.length;
       const totalPages = Math.max(1, Math.ceil(totalFiles / pageSize));
       const currentPage = Math.max(1, parseInt(page, 10) || 1);
@@ -263,10 +197,10 @@ router.get('/api/files', sessRole('SuperAdmin'), async (req, res) => {
       res.json({
         success: true,
         files: paginatedFiles,
-        folders: [], // In recursive mode, frontend calculates folders from file paths
+        folders: [],
         prefix: effectivePrefix,
-        search: search,
-        currentPage: currentPage,
+        search,
+        currentPage,
         totalPages,
         hasNextPage: currentPage < totalPages,
         hasPrevPage: currentPage > 1,
@@ -287,10 +221,9 @@ router.get('/api/files', sessRole('SuperAdmin'), async (req, res) => {
       totalFiles: 0
     });
   }
-});
+}
 
-// Standard single-file upload
-router.post('/upload', sessRole('SuperAdmin'), upload.single('file'), async (req, res) => {
+export async function uploadSingleFile(req, res) {
   try {
     const bucketName = req.activeBucket;
     if (!req.file) {
@@ -298,14 +231,10 @@ router.post('/upload', sessRole('SuperAdmin'), upload.single('file'), async (req
     }
 
     const { prefix = '' } = req.body;
-    let effectivePrefix;
-    try {
-      effectivePrefix = ensurePrefix(prefix);
-    } catch (e) {
-      return res.status(400).json({ success: false, error: e.message });
-    }
+    const effectivePrefix = resolvePrefix(req, res, prefix);
+    if (effectivePrefix === null) return;
 
-    const key = `${effectivePrefix.replace(/\/+$/, '')}/${req.file.originalname}`;
+    const key = buildKey(effectivePrefix, req.file.originalname);
 
     const uploadOptions = {
       metadata: {
@@ -314,19 +243,17 @@ router.post('/upload', sessRole('SuperAdmin'), upload.single('file'), async (req
         'user-agent': req.headers['user-agent'] || 'unknown'
       },
       bucketName,
-      preventOverwrite: true // Use atomic operation to prevent race conditions
+      preventOverwrite: true
     };
 
     try {
       await uploadFile(key, req.file.buffer, req.file.mimetype, uploadOptions);
 
-      // Clean up folder marker if it exists in the parent directory.
       const folderPath = key.substring(0, key.lastIndexOf('/') + 1);
       await cleanupFolderMarker(folderPath, bucketName);
 
-      res.json({ success: true, message: 'File uploaded successfully', key: key });
+      res.json({ success: true, message: 'File uploaded successfully', key });
     } catch (uploadError) {
-      // Handle file already exists error from atomic operation
       if (uploadError.message.includes('already exists')) {
         return res.status(409).json({ success: false, error: `File already exists: ${req.file.originalname}` });
       }
@@ -336,24 +263,19 @@ router.post('/upload', sessRole('SuperAdmin'), upload.single('file'), async (req
     console.error("Error uploading file:", error);
     return sendApiError(res, error, 'Upload failed');
   }
-});
+}
 
-// S3 Multipart Upload — Step 1: Initiate
-// Body: { fileName, prefix?, contentType? }
-// Returns: { uploadId, key }
-router.post('/upload-init', sessRole('SuperAdmin'), async (req, res) => {
+export async function initiateMultipartUpload(req, res) {
   try {
     const bucketName = req.activeBucket;
     const { fileName, prefix = '', contentType = 'application/octet-stream' } = req.body;
     if (!fileName) return res.status(400).json({ success: false, error: 'fileName is required' });
 
-    let effectivePrefix;
-    try { effectivePrefix = ensurePrefix(prefix); } catch (e) { return res.status(400).json({ success: false, error: e.message }); }
-    const key = `${effectivePrefix.replace(/\/+$/, '')}/${fileName}`;
+    const effectivePrefix = resolvePrefix(req, res, prefix);
+    if (effectivePrefix === null) return;
 
-    // Check if file exists before initiating multipart upload
-    // Note: This is still slightly racy, but multipart uploads take time so collision risk is lower
-    // A complete solution would require server-side locking or unique upload IDs
+    const key = buildKey(effectivePrefix, fileName);
+
     const exists = await fileExists(key, bucketName);
     if (exists) return res.status(409).json({ success: false, error: `File already exists: ${fileName}` });
 
@@ -363,12 +285,9 @@ router.post('/upload-init', sessRole('SuperAdmin'), async (req, res) => {
     console.error('[mbkbucket] upload-init failed:', err);
     return sendApiError(res, err, 'upload-init failed');
   }
-});
+}
 
-// S3 Multipart Upload — Step 2: Upload a part
-// FormData: chunk (file), partNumber (1-based integer), uploadId, key
-// Returns: { partNumber, ETag }
-router.post('/upload-chunk', sessRole('SuperAdmin'), uploadChunk, async (req, res) => {
+export async function uploadChunk(req, res) {
   try {
     const bucketName = req.activeBucket;
     const { uploadId, key, partNumber } = req.body;
@@ -386,12 +305,9 @@ router.post('/upload-chunk', sessRole('SuperAdmin'), uploadChunk, async (req, re
     console.error('[mbkbucket] upload-chunk failed:', err);
     return sendApiError(res, err, 'upload-chunk failed');
   }
-});
+}
 
-// S3 Multipart Upload — Step 3: Complete
-// Body: { uploadId, key, parts: [{ partNumber, ETag }] }
-// Returns: { key }
-router.post('/upload-complete', sessRole('SuperAdmin'), async (req, res) => {
+export async function completeUpload(req, res) {
   try {
     const bucketName = req.activeBucket;
     const { uploadId, key, parts } = req.body;
@@ -401,7 +317,6 @@ router.post('/upload-complete', sessRole('SuperAdmin'), async (req, res) => {
 
     const result = await completeMultipartUpload(key, uploadId, parts, bucketName);
 
-    // Clean up folder marker if it exists in the parent directory
     const folderPath = result.key.substring(0, result.key.lastIndexOf('/') + 1);
     await cleanupFolderMarker(folderPath, bucketName);
 
@@ -410,11 +325,9 @@ router.post('/upload-complete', sessRole('SuperAdmin'), async (req, res) => {
     console.error('[mbkbucket] upload-complete failed:', err);
     return sendApiError(res, err, 'upload-complete failed');
   }
-});
+}
 
-// S3 Multipart Upload — Abort (cleanup on client cancel/error)
-// Body: { uploadId, key }
-router.post('/upload-abort', sessRole('SuperAdmin'), async (req, res) => {
+export async function abortUpload(req, res) {
   try {
     const bucketName = req.activeBucket;
     const { uploadId, key } = req.body;
@@ -426,30 +339,26 @@ router.post('/upload-abort', sessRole('SuperAdmin'), async (req, res) => {
     console.error('[mbkbucket] upload-abort failed:', err);
     return sendApiError(res, err, 'upload-abort failed');
   }
-});
+}
 
-// Create folder (zero-byte object with trailing slash)
-router.post('/create-folder', sessRole('SuperAdmin'), async (req, res) => {
+export async function createFolder(req, res) {
   try {
     const bucketName = req.activeBucket;
     const { prefix = '', folderName } = req.body;
     if (!folderName) return res.status(400).json({ success: false, error: 'folderName is required' });
 
-    let effectivePrefix;
-    try { effectivePrefix = ensurePrefix(prefix); } catch (e) { return res.status(400).json({ success: false, error: e.message }); }
+    const effectivePrefix = resolvePrefix(req, res, prefix);
+    if (effectivePrefix === null) return;
 
     const folderKey = `${effectivePrefix.replace(/\/+$/, '')}/${folderName}/`;
 
-    // Check if folder marker already exists
     const markerExists = await fileExists(folderKey, bucketName);
     if (markerExists) return res.status(409).json({ success: false, error: 'Folder already exists' });
 
-    // Check if any files already exist under this prefix (folder already has content)
     const existingFiles = await listfiles(folderKey, { maxKeys: 1, bucketName });
     const hasContent = existingFiles.Contents && existingFiles.Contents.length > 0;
 
     if (hasContent) {
-      // Folder already exists with content, no need to create marker
       return res.json({
         success: true,
         message: 'Folder already exists with content',
@@ -458,7 +367,6 @@ router.post('/create-folder', sessRole('SuperAdmin'), async (req, res) => {
       });
     }
 
-    // Create zero-byte object to represent empty folder
     await uploadFile(folderKey, Buffer.alloc(0), 'application/x-empty', {
       metadata: { 'folder': 'true', 'marker': 'true' },
       bucketName
@@ -469,15 +377,14 @@ router.post('/create-folder', sessRole('SuperAdmin'), async (req, res) => {
     console.error('Create folder failed:', err);
     return sendApiError(res, err, 'Create folder failed');
   }
-});
+}
 
-router.post('/delete', sessRole('SuperAdmin'), async (req, res) => {
+export async function deleteItems(req, res) {
   try {
     const bucketName = req.activeBucket;
     const { key, keys, folder } = req.body;
 
     if (keys && Array.isArray(keys) && keys.length) {
-      // Bulk delete
       await deleteFiles(keys, bucketName);
       return res.json({ success: true, message: 'Files deleted successfully' });
     }
@@ -487,7 +394,6 @@ router.post('/delete', sessRole('SuperAdmin'), async (req, res) => {
     let keyToDelete;
     try { keyToDelete = ensureKeyHasAppPrefix(key); } catch (e) { return res.status(400).json({ success: false, error: e.message }); }
 
-    // If caller indicates it's a folder (or key ends with '/'), delete all objects under the prefix
     if (folder === true || String(keyToDelete).endsWith('/')) {
       await deleteFolder(keyToDelete, bucketName);
       return res.json({ success: true, message: 'Folder deleted successfully' });
@@ -499,31 +405,43 @@ router.post('/delete', sessRole('SuperAdmin'), async (req, res) => {
     console.error("Error deleting file:", error);
     return sendApiError(res, error, 'Delete failed');
   }
-});
+}
 
-router.get('/download/:key(*)', sessRole('SuperAdmin'), async (req, res) => {
-  let stream = null;
+export async function downloadFileHandler(req, res) {
+  // Track whether this request has been aborted (client disconnected)
+  let aborted = false;
+  req.once('aborted', () => { aborted = true; });
+  req.once('close', () => { aborted = true; });
+
   try {
     const bucketName = req.activeBucket;
-    const key = req.params.key;
     let keyToUse;
     try {
-      keyToUse = ensureKeyHasAppPrefix(key);
+      keyToUse = ensureKeyHasAppPrefix(req.params.key);
     } catch (e) {
       return res.status(400).json({ success: false, error: e.message });
     }
+
+    // If client already disconnected before we fetched, bail early
+    if (aborted) return;
+
     const result = await downloadFile(keyToUse, { bucketName });
-    stream = result.Body;
 
-    res.setHeader('Content-Disposition', `attachment; filename="${getBaseName(keyToUse).replace(/"/g, '\\"')}"`);
-    const contentType = result.ContentType || 'application/octet-stream';
-    res.setHeader('Content-Type', contentType);
-
-    // Set Content-Length header for proper download progress indication
-    if (result.ContentLength) {
-      res.setHeader('Content-Length', result.ContentLength);
+    // Re-check: client may have disconnected while waiting for S3
+    if (aborted) {
+      if (result.Body && typeof result.Body.destroy === 'function') result.Body.destroy();
+      return;
     }
 
+    const fileName = getBaseName(keyToUse).replace(/"/g, '\\"');
+    const contentType = result.ContentType || 'application/octet-stream';
+    const contentLength = result.ContentLength;
+
+    // Set headers BEFORE piping — this allows the browser to show filename
+    // and progress bar even before the first byte arrives
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', contentType);
+    if (contentLength) res.setHeader('Content-Length', contentLength);
     if (result.ETag) res.setHeader('ETag', result.ETag);
     if (result.LastModified) res.setHeader('Last-Modified', result.LastModified.toUTCString());
 
@@ -533,9 +451,8 @@ router.get('/download/:key(*)', sessRole('SuperAdmin'), async (req, res) => {
       || typeLower.includes('xml')
       || typeLower.includes('javascript')
       || typeLower.includes('typescript');
-    const isLargeFile = Number(result.ContentLength || 0) > 50 * 1024 * 1024;
+    const isLargeFile = Number(contentLength || 0) > 50 * 1024 * 1024;
 
-    // Smarter cache policy for authenticated downloads.
     if (isSensitiveText) {
       res.setHeader('Cache-Control', 'private, no-store');
     } else if (isLargeFile) {
@@ -544,42 +461,29 @@ router.get('/download/:key(*)', sessRole('SuperAdmin'), async (req, res) => {
       res.setHeader('Cache-Control', 'private, max-age=1800, must-revalidate');
     }
 
-    // Proper stream error handling
-    stream.on('error', (err) => {
-      console.error('Download stream error:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ message: 'Error streaming file', error: err.message });
+    // Use pipeline for proper backpressure + cleanup. On abort, the
+    // pipeline will be rejected and we clean up the S3 stream.
+    try {
+      await pipeline(result.Body, res);
+    } catch (pipeErr) {
+      // Aborted by client — expected, not an error
+      if (aborted) {
+        if (result.Body && typeof result.Body.destroy === 'function') result.Body.destroy();
+        return;
       }
-      if (stream && typeof stream.destroy === 'function') stream.destroy();
-    });
+      throw pipeErr;
+    }
+  } catch (error) {
+    // Don't try to send error response if client already disconnected
+    if (aborted) return;
 
-    // Clean up on client disconnect
-    req.on('close', () => {
-      if (stream && typeof stream.destroy === 'function') stream.destroy();
-    });
-
-    // Handle request timeout
-    const timeoutDuration = result.ContentLength > 50 * 1024 * 1024 ? 300000 : 120000;
-    req.setTimeout(timeoutDuration, () => {
-      console.error(`Download timeout (${timeoutDuration}ms) for: ${keyToUse}`);
-      if (stream && typeof stream.destroy === 'function') stream.destroy();
-    });
-
-    stream.pipe(res);
-  }
-  catch (error) {
     console.error("Error downloading file:", error);
-
-    // Clean up stream on error
-    if (stream && typeof stream.destroy === 'function') stream.destroy();
-    if (error.message.includes('File not found')) {
+    if (error.message && error.message.includes('File not found')) {
       res.status(404).json({ message: "File not found", key: req.params.key });
-    } else if (error.message.includes('Access denied')) {
+    } else if (error.message && error.message.includes('Access denied')) {
       res.status(403).json({ message: "Access denied" });
-    } else {
+    } else if (!res.headersSent) {
       res.status(500).json({ message: "Download failed", error: error.message });
     }
   }
-});
-
-export default router;
+}

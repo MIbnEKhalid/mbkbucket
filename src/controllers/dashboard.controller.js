@@ -1,24 +1,19 @@
-import express from "express";
-import infoRoutes from "./info.js";
-import viewRoutes from "./view.js";
-import apiRoutes from "./api.js";
-import { sessRole, renderPage, mbkautheVar } from "mbkauthe";
-import { resolveBucketName, getAvailableBucketNames } from "../s3.js";
+import { resolveBucketName, getAvailableBucketNames } from "../services/s3.service.js";
+import { renderPage, mbkautheVar } from "mbkauthe";
 
-const router = express.Router();
-
-function renderBucketDashboard(req, res) {
+/**
+ * Render the main bucket dashboard page.
+ */
+export function renderBucketDashboard(req, res) {
   const allBuckets = getAvailableBucketNames();
   const configuredDefaultBucket = mbkautheVar?.bucket;
 
   let bucketfilePath;
-
-  if(mbkautheVar?.APP_NAME === "portal") {
-    bucketfilePath ="bucketportal.handlebars";
+  if (mbkautheVar?.APP_NAME === "portal") {
+    bucketfilePath = "bucketportal.handlebars";
   } else {
     bucketfilePath = "bucket.handlebars";
   }
-
 
   let selectedBucket;
 
@@ -61,26 +56,3 @@ function renderBucketDashboard(req, res) {
     availableBuckets: allBuckets
   });
 }
-
-router.get('/mbkbucket', sessRole('SuperAdmin'), async (req, res) => {
-  return renderBucketDashboard(req, res);
-});
-
-// Central bucket resolution for all /mbkbucket subroutes.
-router.use('/mbkbucket', (req, _res, next) => {
-  try {
-    req.activeBucket = resolveBucketName(req.query.bucket);
-    req.bucketResolveError = null;
-  } catch (err) {
-    req.activeBucket = null;
-    req.bucketResolveError = err;
-  }
-  next();
-});
-
-
-router.use("/mbkbucket", infoRoutes);
-router.use("/mbkbucket", viewRoutes);
-router.use("/mbkbucket", apiRoutes);
-
-export default router;

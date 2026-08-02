@@ -1,7 +1,7 @@
 import { createRequire } from "module";
 import dotenv from "dotenv";
 import { parseAndValidateMbkbucketVar, parseAndValidateBucketConnection } from "./validation.js";
-import { createLogger } from "../debug.js";
+import { createLogger } from "../utils/logger.js";
 
 dotenv.config();
 const debugConfig = createLogger('config');
@@ -99,28 +99,35 @@ function validateBucketConnection() {
     }
 
     try {
-        const bucketConfig = parseAndValidateBucketConnection(process.env.BucketConnection);
-        const bucketNames = Object.keys(bucketConfig || {});
-
-        debugConfig('BucketConnection validated (%s bucket(s): %s)', bucketNames.length, bucketNames.join(', '));
-        return bucketConfig;
+        parseAndValidateBucketConnection(process.env.BucketConnection);
+        debugConfig('BucketConnection configuration validated successfully');
     } catch (error) {
-        console.error(`[mbkbucket] ❌ BucketConnection validation failed: ${error.message}`);
-        console.error(`[mbkbucket] Current value (excerpt): ${process.env.BucketConnection.slice(0, 200)}...`);
-        console.error(`[mbkbucket] Correct format example:`);
-        console.error(`[mbkbucket] BucketConnection={"r2":{"BUCKET_NAME":"my-bucket","ACCESS_KEY_ID":"key","SECRET_ACCESS_KEY":"secret","ENDPOINT":"https://endpoint.com"}}`);
-        console.error(`[mbkbucket] ⚠️  Note: Inner objects should NOT be quoted as strings!`);
-        throw new Error(`[mbkbucket] Invalid BucketConnection configuration`);
+        throw new Error(`[mbkbucket] BucketConnection validation failed:\n  - ${error.message}`);
     }
 }
 
-// Parse and validate mbkbucketVar once
+// Validate all configuration at startup
+function validateAllConfiguration() {
+    try {
+        validateConfiguration();
+        validateBucketConnection();
+        debugConfig('All configurations validated successfully');
+        return true;
+    } catch (error) {
+        console.error(error.message);
+        return false;
+    }
+}
+
 const mbkbucketVar = validateConfiguration();
-debugConfig('mbkbucketVar configuration: %O', mbkbucketVar);
 
-// Validate BucketConnection
-validateBucketConnection();
-
-export { packageJson, appVersion, getLatestVersion, checkVersion };
-export { mbkbucketVar };
-export { parseAndValidateMbkbucketVar, parseAndValidateBucketConnection };
+export {
+    packageJson,
+    appVersion,
+    mbkbucketVar,
+    checkVersion,
+    getLatestVersion,
+    validateConfiguration,
+    validateBucketConnection,
+    validateAllConfiguration
+};

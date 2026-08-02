@@ -1,0 +1,14 @@
+{
+  "_schema": "mbkbucket CLI config — stored at ~/.mbkbucket/config.json",
+
+  "token": "mbk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "tokenPrefix": "mbk_xxxx",
+  "username": "your-username",
+  "serverUrl": "https://your-app.example.com",
+  "profile": {
+    "name": "Read-Write CLI",
+    "scope": "read-write",
+    "allowedApps": ["mbkbucket"]
+  },
+  "loggedInAt": "2026-01-01T00:00:00.000Z"
+}

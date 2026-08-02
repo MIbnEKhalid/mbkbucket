@@ -1,13 +1,16 @@
 {
   "name": "mbkbucket",
-  "version": "2.1.1",
-  "description": "Flexible S3/R2 bucket management library and Express router for mbktech.org applications, providing upload, download, listing, and multipart utilities with built-in configuration validation and health checks",
+  "version": "3.0.0",
+  "description": "Flexible S3/R2 bucket management — library, Express router, and CLI for mbktech.org applications. Provides upload, download, listing, multipart utilities, signed URLs, and a command-line interface with built-in configuration validation and health checks",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
   "license": "LGPL-3.0-only",
   "main": "index.js",
   "type": "module",
   "types": "index.d.ts",
+  "bin": {
+    "mbkbucket": "./cli.js"
+  },
   "scripts": {
     "dev": "cross-env NODE_ENV=dev nodemon index.js",
     "test": "node --test"
@@ -21,7 +24,7 @@
     "express": "^4.22.1",
     "express-handlebars": "^8.0.3",
     "express-rate-limit": "^7.0.1",
-    "mbkauthe": "5.1.1",
+    "mbkauthe": "5.3.2",
     "multer": "^2.0.2",
     "pg": "^8.16.3"
   },
@@ -53,6 +56,10 @@
     "idrivee2",
     "storage",
     "mbkauthe",
-    "mbktech.org"
+    "mbktech.org",
+    "cli",
+    "command-line",
+    "file-upload",
+    "file-download"
   ]
 }

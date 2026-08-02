@@ -1,7 +1,7 @@
 import { S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, HeadObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, ListMultipartUploadsCommand } from '@aws-sdk/client-s3';
 import dotenv from "dotenv";
 import { mbkautheVar } from "mbkauthe";
-import { createLogger } from "./debug.js";
+import { createLogger } from "../utils/logger.js";
 
 dotenv.config();
 const debugS3 = createLogger('s3');
@@ -11,7 +11,6 @@ function parseJsonEnv(envVar, fallback = {}) {
     try {
         return JSON.parse(envVar);
     } catch (e) {
-        // Log a concise message including the error and a short excerpt of the env value when available
         console.error(`❌ Error parsing JSON for envVar: ${envVar ? String(envVar).slice(0, 200) : 'undefined'} - ${e.message}`);
         console.error(`💡 Tip: Check that inner objects are NOT quoted as strings. Use {"key":{"field":"value"}} not {"key":"{"field":"value"}"}`);
         return fallback;
@@ -33,17 +32,14 @@ export function getAvailableBucketNames() {
 
 // Helper to get default bucket name
 function getDefaultBucketName() {
-  // First priority: use mbkautheVar.bucket if configured
   if (mbkautheVar && mbkautheVar.bucket) {
     return mbkautheVar.bucket;
   }
-  
-  // Second priority: use first bucket in BucketConnection
+
   if (availableBucketNames.length > 0) {
     return availableBucketNames[0];
   }
-  
-  // Fallback: return null (will cause error in getBucketConfig)
+
   return null;
 }
 
@@ -67,9 +63,6 @@ export function resolveBucketName(bucketName) {
   return candidate;
 }
 
-// (bucketClient singleton exported below, after cache setup)
-
-// Helper: get configured APP_NAME; prefer mbkautheVar, then env var
 export function getAppName() {
   const app = (mbkautheVar && mbkautheVar.APP_NAME);
   return (typeof app === 'string' && app.trim()) ? app.trim() : '';
@@ -77,34 +70,29 @@ export function getAppName() {
 
 function isRootModeApp(appName) {
   const app = String(appName || '').toLowerCase();
-  const isRootApp = app === 'portal' || app === 'mbkbucket';
-  return isRootApp;
+  return app === 'portal' || app === 'mbkbucket';
 }
 
 export function ensureKeyHasAppPrefix(key = '') {
   const app = getAppName();
   if (!key) throw new Error('Key is required');
-  
-  // Security: Detect path traversal attempts
+
   if (key.includes('../') || key.includes('..\\') || /\.\.[\\/]/.test(key)) {
     throw new Error('Path traversal detected: invalid key');
   }
-  
-  // Security: Block null bytes and control characters
+
   if (/[\x00-\x1f\x7f]/.test(key)) {
     throw new Error('Invalid characters in key');
   }
-  
+
   let cleaned = String(key).replace(/^\/+/, '');
 
-  // Special case: APP_NAME=portal means operate from bucket root.
   if (isRootModeApp(app)) {
     return cleaned;
   }
 
   if (!app) throw new Error('APP_NAME is not configured; set mbkautheVar.APP_NAME or MBKAUTHE_APP_NAME');
 
-  // Collapse repeated app prefixes (app/app/... -> app/...)
   const appPrefixRegex = new RegExp(`^(?:${escapeRegExp(app)}\/)+`);
   if (!cleaned.startsWith(`${app}/`)) {
     cleaned = `${app}/${cleaned}`;
@@ -114,58 +102,49 @@ export function ensureKeyHasAppPrefix(key = '') {
   return cleaned;
 }
 
-
 export function ensurePrefix(prefix = '') {
   const app = getAppName();
-  
-  // Security: Detect path traversal attempts
+
   if (prefix && (prefix.includes('../') || prefix.includes('..\\') || /\.\.[\\/]/.test(prefix))) {
     throw new Error('Path traversal detected: invalid prefix');
   }
-  
-  // Security: Block null bytes and control characters
+
   if (prefix && /[\x00-\x1f\x7f]/.test(prefix)) {
     throw new Error('Invalid characters in prefix');
   }
-  
-  // Only strip LEADING slashes. Preserve trailing slashes for directory listing.
+
   let p = String(prefix || '').replace(/^\/+/, '');
 
-  // Special case: APP_NAME=portal means operate from bucket root.
   if (isRootModeApp(app)) {
     return p;
   }
 
   if (!app) throw new Error('APP_NAME is not configured; set mbkautheVar.APP_NAME or MBKAUTHE_APP_NAME');
-  
+
   if (!p) return `${app}`;
-  
-  // If prefix already equals app or already starts with app/, normalize and return single app prefix
-  if (p === app) return app; // If p is exactly "app", we return "app". (Caller should append / if listing root)
+
+  if (p === app) return app;
   if (p === `${app}/`) return `${app}/`;
 
   if (p.startsWith(`${app}/`)) {
-    // collapse repeated app/ sequences
     const appPrefixRegex = new RegExp(`^(?:${escapeRegExp(app)}\/)+`);
     return p.replace(appPrefixRegex, `${app}/`);
   }
   return `${app}/${p}`;
-}  
+}
 
 // ---------------------------------------------------------------------------
-// Singleton S3 client cache — one reused client per bucket key.
-// Avoids creating a new S3Client (and losing connection pooling) on every call.
+// Singleton S3 client cache
 // ---------------------------------------------------------------------------
 const _clientCache = new Map();
 const _configCache = new Map();
 
 export function getBucketConfig(bucketName) {
   bucketName = resolveBucketName(bucketName);
-  
+
   const cacheKey = bucketName;
   if (_configCache.has(cacheKey)) return _configCache.get(cacheKey);
 
-  // Look up bucket config from BucketConnection JSON
   if (!hasBucketConfigs) {
     console.error(`[mbkbucket] ❌ BucketConnection is not configured or failed to parse`);
     console.error(`[mbkbucket] Please set BucketConnection in your .env file with this format:`);
@@ -175,9 +154,9 @@ export function getBucketConfig(bucketName) {
     console.error(`[mbkbucket] Right: {"r2":{"BUCKET_NAME":"..."}}  ✓`);
     throw new Error(`BucketConnection environment variable is not set or empty. Please configure it with your bucket connections.`);
   }
-  
+
   const cfg = allBucketConfigs[bucketName];
-  
+
   if (!cfg) {
     throw new Error(`Bucket '${bucketName}' not found in BucketConnection. Available buckets: ${availableBucketNames.join(', ')}`);
   }
@@ -186,10 +165,9 @@ export function getBucketConfig(bucketName) {
   return cfg;
 }
 
-// Function to get S3 client for specific bucket — returns cached singleton
 export function getBucketClient(bucketName) {
   bucketName = resolveBucketName(bucketName);
-  
+
   if (_clientCache.has(bucketName)) return _clientCache.get(bucketName);
 
   const config = getBucketConfig(bucketName);
@@ -218,46 +196,55 @@ export function getBucketClient(bucketName) {
   return client;
 }
 
-// Default client singleton — reused by any external consumers that import it
-export const bucketClient = getBucketClient();
+/**
+ * Resolve both client and config in a single call — avoids redundant
+ * resolveBucketName + cache lookups in every S3 operation.
+ */
+export function getBucketClientAndConfig(bucketName) {
+  const resolved = resolveBucketName(bucketName);
+  return {
+    client: getBucketClient(resolved),
+    config: getBucketConfig(resolved),
+    bucketName: resolved
+  };
+}
 
-// Health check for connection (moved up for startup test)
-async function checkHealth() {
+// Default client singleton (lazily created on first access, not at import time)
+let _defaultClient = null;
+export const bucketClient = new Proxy({}, {
+  get(_, prop) {
+    if (!_defaultClient) _defaultClient = getBucketClient();
+    const val = _defaultClient[prop];
+    return typeof val === 'function' ? val.bind(_defaultClient) : val;
+  }
+});
+
+// Health check for connection (lazy — only runs when called explicitly)
+export async function checkHealth() {
   try {
     const startTime = Date.now();
-    
-    const config = getBucketConfig();
+    const { client, config } = getBucketClientAndConfig();
     const bucketName = config.BUCKET_NAME;
 
-    // Try to list objects with minimal result
-    const command = new ListObjectsV2Command({
-      Bucket: bucketName,
-      MaxKeys: 1,
-    });
-    
-    const client = getBucketClient();
-    const result = await client.send(command);
-    const responseTime = Date.now() - startTime;
-    
+    await client.send(new ListObjectsV2Command({ Bucket: bucketName, MaxKeys: 1 }));
     return {
       status: 'healthy',
-      responseTime,
+      responseTime: Date.now() - startTime,
       bucket: bucketName,
       region: config.region || 'auto',
       checkedAt: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'unhealthy',
-      error: error.message,
-      bucket: (function(){try{return getBucketConfig().BUCKET_NAME}catch(e){return 'unknown'}})(),
-      checkedAt: new Date().toISOString()
-    };
+    let bucket = 'unknown';
+    try { bucket = getBucketConfig().BUCKET_NAME; } catch {}
+    return { status: 'unhealthy', error: error.message, bucket, checkedAt: new Date().toISOString() };
   }
 }
 
-// Quick diagnostics at startup
-(async () => {
+/**
+ * Run S3 health check and log results. Should be called explicitly at app startup.
+ */
+export async function runHealthCheck() {
   try {
     debugS3('mbkautheVar snapshot: %O', { APP_NAME: mbkautheVar?.APP_NAME, bucket: mbkautheVar?.bucket });
     const health = await checkHealth();
@@ -269,35 +256,31 @@ async function checkHealth() {
   } catch (err) {
     console.error("[mbkbucket] S3 connection test error:", err.message);
   }
-})();
+}
 
 // Upload file with enhanced features
 export async function uploadFile(key, fileBuffer, contentType, options = {}) {
   try {
-    // Validate inputs
     if (!key || !fileBuffer) {
       throw new Error('Key and file buffer are required');
     }
 
-    // Enforce app prefix (never allow root keys)
     const keyToUpload = ensureKeyHasAppPrefix(key);
 
     const {
       metadata = {},
-      cacheControl = 'public, max-age=31536000', // 1 year default
+      cacheControl = 'public, max-age=31536000',
       storageClass = 'STANDARD',
       serverSideEncryption = 'AES256',
       bucketName,
-      preventOverwrite = false // New option to prevent race conditions
+      preventOverwrite = false
     } = options;
-    
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
 
     debugS3('Uploading file to bucket=%s key=%s', bucket, keyToUpload);
 
-    // Add default metadata (supports metadata)
     const uploadedAt = new Date().toISOString();
     const defaultMetadata = {
       'uploaded-at': uploadedAt,
@@ -316,31 +299,29 @@ export async function uploadFile(key, fileBuffer, contentType, options = {}) {
       ServerSideEncryption: serverSideEncryption,
       StorageClass: storageClass,
     };
-    
-    // Add conditional upload to prevent overwriting (atomic operation)
+
     if (preventOverwrite) {
-      commandParams.IfNoneMatch = '*'; // Only upload if object doesn't exist
+      commandParams.IfNoneMatch = '*';
     }
 
     const command = new PutObjectCommand(commandParams);
-    
+
     const result = await client.send(command);
-    
+
     return {
       ...result,
       fileSize: fileBuffer.length,
       key: keyToUpload,
       contentType,
       uploadedAt
-    }; 
+    };
   } catch (error) {
     console.error(`Upload failed for key ${key}:`, error);
-    
-    // Handle precondition failed (file already exists)
+
     if (error.name === 'PreconditionFailed' || error.$metadata?.httpStatusCode === 412) {
       throw new Error('File already exists');
     }
-    
+
     throw new Error(`Upload failed: ${error.message}`);
   }
 }
@@ -353,7 +334,6 @@ export async function downloadFile(key, options = {}) {
       throw new Error('Key is required');
     }
 
-    // Ensure key is app-prefixed
     keyToDownload = ensureKeyHasAppPrefix(key);
 
     const {
@@ -364,12 +344,10 @@ export async function downloadFile(key, options = {}) {
       responseContentType = null,
       bucketName
     } = options;
-    
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
 
-    // Log range requests for debugging
     if (range) {
       debugS3('Range request for %s: %s', keyToDownload, range);
     }
@@ -383,23 +361,20 @@ export async function downloadFile(key, options = {}) {
       ...(responseCacheControl && { ResponseCacheControl: responseCacheControl }),
       ...(responseContentType && { ResponseContentType: responseContentType }),
     });
-    
+
     const result = await client.send(command);
-    
+
     return {
       ...result,
       key: keyToDownload,
-    }; 
+    };
   } catch (error) {
     console.error(`Download failed for key ${key}:`, error);
 
-    // Some S3-compatible endpoints return 304 Not Modified as a response to conditional GETs.
-    // The SDK surface may throw an error with metadata httpStatusCode=304 — treat this as a not-modified condition.
     if (error && error.$metadata && error.$metadata.httpStatusCode === 304) {
       return { notModified: true, key: keyToDownload };
     }
 
-    // Handle specific S3 errors
     if (error.name === 'NoSuchKey') {
       throw new Error(`File not found: ${key}`);
     } else if (error.name === 'AccessDenied') {
@@ -417,18 +392,17 @@ export async function deleteFile(key, bucketName) {
       throw new Error('Key is required');
     }
     const keyToDelete = ensureKeyHasAppPrefix(key);
-    
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
 
     const command = new DeleteObjectCommand({
       Bucket: bucket,
       Key: keyToDelete,
     });
-    
+
     const result = await client.send(command);
-    
+
     return {
       ...result,
       key: keyToDelete,
@@ -438,7 +412,7 @@ export async function deleteFile(key, bucketName) {
     console.error(`Delete failed:`, error);
     throw new Error(`Delete failed: ${error.message}`);
   }
-} 
+}
 
 // Batch delete multiple files
 export async function deleteFiles(keys, bucketName) {
@@ -446,12 +420,10 @@ export async function deleteFiles(keys, bucketName) {
     if (!keys || !Array.isArray(keys) || keys.length === 0) {
       throw new Error('Keys array is required and must not be empty');
     }
-    
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
 
-    // S3 allows max 1000 objects per delete request
     const maxBatchSize = 1000;
     const results = [];
     let deletedCount = 0;
@@ -459,7 +431,7 @@ export async function deleteFiles(keys, bucketName) {
 
     for (let i = 0; i < keys.length; i += maxBatchSize) {
       const batch = keys.slice(i, i + maxBatchSize).map(k => ({ Key: ensureKeyHasAppPrefix(k) }));
-      
+
       const command = new DeleteObjectsCommand({
         Bucket: bucket,
         Delete: {
@@ -486,12 +458,7 @@ export async function deleteFiles(keys, bucketName) {
   }
 }
 
-// List files with enhanced pagination and filtering
-/**
- * Delete all objects under a folder prefix (recursive).
- * Accepts either a folder key (may include trailing slash) or a relative prefix.
- * Normalizes the prefix to include the configured APP_NAME and ensures trailing slash.
- */
+// Delete all objects under a folder prefix (recursive)
 export async function deleteFolder(prefix, bucketName) {
   try {
     if (!prefix) {
@@ -501,14 +468,12 @@ export async function deleteFolder(prefix, bucketName) {
     const cleaned = String(prefix).replace(/^\/+/, '').replace(/\/+$/g, '');
     const effectivePrefix = ensurePrefix(cleaned) + '/';
 
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
 
     const keysToDelete = [];
     let continuationToken = null;
 
-    // Paginate through all objects under the prefix
     do {
       const listCmd = new ListObjectsV2Command({
         Bucket: bucket,
@@ -525,7 +490,6 @@ export async function deleteFolder(prefix, bucketName) {
     } while (continuationToken);
 
     if (!keysToDelete.length) {
-      // Nothing found under this prefix; attempt to remove a zero-byte folder marker if present
       const folderMarkerKey = effectivePrefix;
       const exists = await fileExists(folderMarkerKey, bucketName);
       if (exists) {
@@ -535,7 +499,6 @@ export async function deleteFolder(prefix, bucketName) {
       return { deletedCount: 0, deletedAt: new Date().toISOString(), prefix: effectivePrefix };
     }
 
-    // Use the existing deleteFiles helper which handles batching and error aggregation
     const result = await deleteFiles(keysToDelete, bucketName);
 
     return {
@@ -560,14 +523,11 @@ export async function listfiles(prefix = '', options = {}) {
       startAfter = null,
       bucketName
     } = options;
-    
-    // Enforce non-root prefix: default to APP_NAME and normalize
+
     const effectivePrefix = ensurePrefix(prefix);
 
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
-
 
     const command = new ListObjectsV2Command({
       Bucket: bucket,
@@ -578,9 +538,9 @@ export async function listfiles(prefix = '', options = {}) {
       ...(fetchOwner && { FetchOwner: fetchOwner }),
       ...(startAfter && { StartAfter: startAfter }),
     });
-    
+
     const result = await client.send(command);
-    
+
     return {
       ...result,
       requestedAt: new Date().toISOString(),
@@ -601,19 +561,18 @@ export async function getFileMetadata(key, bucketName) {
       throw new Error('Key is required');
     }
     const keyToCheck = ensureKeyHasAppPrefix(key);
-    
-    const client = getBucketClient(bucketName);
-    const config = getBucketConfig(bucketName);
+
+    const { client, config } = getBucketClientAndConfig(bucketName);
     const bucket = config.BUCKET_NAME;
 
     const command = new HeadObjectCommand({
       Bucket: bucket,
       Key: keyToCheck,
     });
-    
+
     const result = await client.send(command);
     const queriedAt = new Date().toISOString();
-    
+
     return {
       ...result,
       key: keyToCheck,
@@ -629,11 +588,11 @@ export async function getFileMetadata(key, bucketName) {
         queriedAt
       };
     }
-    
+
     console.error(`Get metadata failed for key ${key}:`, error);
     throw new Error(`Get metadata failed: ${error.message}`);
   }
-} 
+}
 
 // Check if file exists
 export async function fileExists(key, bucketName) {
@@ -655,23 +614,16 @@ export async function getFileSize(key, bucketName) {
   }
 }
 
-// Export health check for external use
-export { checkHealth };
-
 // ---------------------------------------------------------------------------
 // S3 Multipart Upload helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Initiate a multipart upload. Returns the S3 UploadId.
- */
 export async function createMultipartUpload(key, contentType = 'application/octet-stream', metadata = {}, bucketName) {
   const keyToUse = ensureKeyHasAppPrefix(key);
-  const cfg = getBucketConfig(bucketName);
-  const client = getBucketClient(bucketName);
+  const { client, config } = getBucketClientAndConfig(bucketName);
   const uploadedAt = new Date().toISOString();
   const command = new CreateMultipartUploadCommand({
-    Bucket: cfg.BUCKET_NAME,
+    Bucket: config.BUCKET_NAME,
     Key: keyToUse,
     ContentType: contentType,
     Metadata: {
@@ -684,16 +636,11 @@ export async function createMultipartUpload(key, contentType = 'application/octe
   return { uploadId: result.UploadId, key: keyToUse };
 }
 
-/**
- * Upload a single part. partNumber is 1-based.
- * Returns the ETag needed for CompleteMultipartUpload.
- */
 export async function uploadPart(key, uploadId, partNumber, buffer, bucketName) {
   const keyToUse = ensureKeyHasAppPrefix(key);
-  const cfg = getBucketConfig(bucketName);
-  const client = getBucketClient(bucketName);
+  const { client, config } = getBucketClientAndConfig(bucketName);
   const command = new UploadPartCommand({
-    Bucket: cfg.BUCKET_NAME,
+    Bucket: config.BUCKET_NAME,
     Key: keyToUse,
     UploadId: uploadId,
     PartNumber: partNumber,
@@ -704,17 +651,12 @@ export async function uploadPart(key, uploadId, partNumber, buffer, bucketName) 
   return { ETag: result.ETag, partNumber };
 }
 
-/**
- * Complete a multipart upload.
- * parts must be an array of { partNumber, ETag } sorted ascending by partNumber.
- */
 export async function completeMultipartUpload(key, uploadId, parts, bucketName) {
   const keyToUse = ensureKeyHasAppPrefix(key);
-  const cfg = getBucketConfig(bucketName);
-  const client = getBucketClient(bucketName);
+  const { client, config } = getBucketClientAndConfig(bucketName);
   const sorted = [...parts].sort((a, b) => a.partNumber - b.partNumber);
   const command = new CompleteMultipartUploadCommand({
-    Bucket: cfg.BUCKET_NAME,
+    Bucket: config.BUCKET_NAME,
     Key: keyToUse,
     UploadId: uploadId,
     MultipartUpload: {
@@ -725,15 +667,11 @@ export async function completeMultipartUpload(key, uploadId, parts, bucketName) 
   return { key: keyToUse };
 }
 
-/**
- * Abort an in-progress multipart upload, freeing all stored parts.
- */
 export async function abortMultipartUpload(key, uploadId, bucketName) {
   const keyToUse = ensureKeyHasAppPrefix(key);
-  const cfg = getBucketConfig(bucketName);
-  const client = getBucketClient(bucketName);
+  const { client, config } = getBucketClientAndConfig(bucketName);
   const command = new AbortMultipartUploadCommand({
-    Bucket: cfg.BUCKET_NAME,
+    Bucket: config.BUCKET_NAME,
     Key: keyToUse,
     UploadId: uploadId
   });
@@ -746,10 +684,10 @@ export async function generateSignedUrl(key, operation = 'getObject', expiresIn 
   try {
     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
     const keyToUse = ensureKeyHasAppPrefix(key);
-    
+
     let command;
-    const cfg = getBucketConfig(bucketName);
-    const resolvedBucketName = cfg.BUCKET_NAME;
+    const { client, config } = getBucketClientAndConfig(bucketName);
+    const resolvedBucketName = config.BUCKET_NAME;
     switch (operation) {
       case 'getObject':
         command = new GetObjectCommand({ Bucket: resolvedBucketName, Key: keyToUse });
@@ -760,9 +698,9 @@ export async function generateSignedUrl(key, operation = 'getObject', expiresIn 
       default:
         throw new Error(`Unsupported operation: ${operation}`);
     }
-    
-    const signedUrl = await getSignedUrl(getBucketClient(bucketName), command, { expiresIn });
-    
+
+    const signedUrl = await getSignedUrl(client, command, { expiresIn });
+
     return {
       url: signedUrl,
       key,
@@ -781,23 +719,16 @@ export async function generateSignedUrl(key, operation = 'getObject', expiresIn 
 // Multipart Upload Cleanup
 // ---------------------------------------------------------------------------
 
-/**
- * List incomplete multipart uploads
- * @param {string} prefix - Optional prefix to filter uploads
- * @param {string} bucketName - Bucket name
- * @returns {Promise<Array>} Array of incomplete multipart uploads
- */
 export async function listIncompleteMultipartUploads(prefix = '', bucketName) {
   try {
     const effectivePrefix = ensurePrefix(prefix || '');
-    const cfg = getBucketConfig(bucketName);
-    const client = getBucketClient(bucketName);
-    
+    const { client, config } = getBucketClientAndConfig(bucketName);
+
     const command = new ListMultipartUploadsCommand({
-      Bucket: cfg.BUCKET_NAME,
+      Bucket: config.BUCKET_NAME,
       Prefix: effectivePrefix
     });
-    
+
     const result = await client.send(command);
     return result.Uploads || [];
   } catch (error) {
@@ -806,36 +737,29 @@ export async function listIncompleteMultipartUploads(prefix = '', bucketName) {
   }
 }
 
-/**
- * Clean up old incomplete multipart uploads
- * @param {number} olderThanDays - Delete uploads older than this many days (default: 7)
- * @param {string} prefix - Optional prefix to filter uploads
- * @param {string} bucketName - Bucket name
- * @returns {Promise<Object>} Cleanup results with count of aborted uploads
- */
 export async function cleanupIncompleteMultipartUploads(olderThanDays = 7, prefix = '', bucketName) {
   try {
     const uploads = await listIncompleteMultipartUploads(prefix, bucketName);
-    
+
     if (!uploads.length) {
       debugS3('No incomplete multipart uploads found');
       return { abortedCount: 0, uploads: [] };
     }
-    
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-    
+
     const uploadsToAbort = uploads.filter(upload => {
       return upload.Initiated && new Date(upload.Initiated) < cutoffDate;
     });
-    
+
     if (!uploadsToAbort.length) {
       debugS3('No incomplete uploads older than %s days', olderThanDays);
       return { abortedCount: 0, uploads: [] };
     }
-    
+
     debugS3('Found %s incomplete uploads to clean up', uploadsToAbort.length);
-    
+
     const aborted = [];
     for (const upload of uploadsToAbort) {
       try {
@@ -850,7 +774,7 @@ export async function cleanupIncompleteMultipartUploads(olderThanDays = 7, prefi
         console.error(`[mbkbucket] Failed to abort upload ${upload.Key}:`, err);
       }
     }
-    
+
     return {
       abortedCount: aborted.length,
       uploads: aborted,

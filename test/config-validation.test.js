@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAndValidateMbkbucketVar, parseAndValidateBucketConnection, normalizeBooleanLike } from '../lib/config/validation.js';
+import { parseAndValidateMbkbucketVar, parseAndValidateBucketConnection, normalizeBooleanLike } from '../src/config/validation.js';
 
 test('parseAndValidateMbkbucketVar applies defaults when empty', () => {
   const cfg = parseAndValidateMbkbucketVar(undefined);

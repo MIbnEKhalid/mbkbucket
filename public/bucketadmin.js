@@ -37,6 +37,35 @@ function getDownloadUrl(encodedKey) {
     return withBucketUrl(`/mbkbucket/download/${encodedKey}`);
 }
 
+/**
+ * Download a file via fetch + Blob, which allows multiple concurrent downloads
+ * (unlike <a href> navigation which cancels the previous download).
+ * @param {string} url - The download URL
+ * @param {string} filename - The filename to save as
+ */
+async function downloadFileViaFetch(url, filename) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || err.error || `Download failed (${response.status})`);
+        }
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Revoke the object URL after a short delay to allow the browser to start the download
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (err) {
+        console.error('Download failed:', err);
+        alert('Download failed: ' + err.message);
+    }
+}
+
 function stripApiPrefixFromPath(path, apiPrefix = '') {
     const normalizedPath = String(path || '').replace(/^\/+/, '');
     const normalizedApiPrefix = String(apiPrefix || '').replace(/^\/+/, '').replace(/\/+$/, '');
@@ -686,7 +715,7 @@ function renderFilesTable(files, folders = [], prefix = '', apiPrefix = '') {
               <button type="button" class="btn btn-info btn-sm copy-btn" data-key-enc="${encodedKey}" title="Copy Link">
                 <i class="fas fa-link"></i>
               </button>
-                            <a href="${getDownloadUrl(encodedKey)}" class="btn btn-success btn-sm"
+                            <a href="#" onclick="event.preventDefault(); downloadFileViaFetch('${getDownloadUrl(encodedKey)}', '${escapeAttr(filename)}')" class="btn btn-success btn-sm"
                 title="Download file">
                 <i class="fas fa-download"></i>
               </a>
@@ -1601,9 +1630,12 @@ function showPreviewModal(encodedKey, filename, extension, previewMode = 'auto')
     titleEl.textContent = filename;
     titleEl.title = filename;
     openBtn.href = getViewUrl(encodedKey);
-    downloadBtn.href = getDownloadUrl(encodedKey);
-    // Ensure downloaded file has the original filename
-    downloadBtn.setAttribute('download', filename);
+    downloadBtn.href = '#';
+    downloadBtn.onclick = (e) => {
+      e.preventDefault();
+      downloadFileViaFetch(getDownloadUrl(encodedKey), filename);
+    };
+    downloadBtn.removeAttribute('download');
 
     // Reset sizing classes
     dialog.classList.remove('preview-large', 'preview-compact');
