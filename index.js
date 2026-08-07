@@ -8,17 +8,22 @@ dotenv.config();
 
 const debugServer = createLogger('server');
 const port = process.env.PORT || 3004;
-
-// Check for package updates and S3 connectivity on startup
-await checkVersion();
-await runHealthCheck();
+const isDevMode = process.env.NODE_ENV === "dev";
 
 // Create and start the Express application
 const server = createApp();
 
-server.listen(port, () => {
-  debugServer("Server running on http://localhost:%s", port);
-});
+if (isDevMode) {
+
+  // Check for package updates and S3 connectivity on startup
+  await checkVersion();
+  await runHealthCheck();
+
+  server.listen(port, () => {
+    debugServer("Server running on http://localhost:%s", port);
+  });
+
+}
 
 // Re-export the public API for consumers of this package (named exports only)
 export * from "./src/services/s3.service.js";

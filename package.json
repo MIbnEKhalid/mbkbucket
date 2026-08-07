@@ -1,6 +1,6 @@
 {
   "name": "mbkbucket",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Flexible S3/R2 bucket management — library, Express router, and CLI for mbktech.org applications. Provides upload, download, listing, multipart utilities, signed URLs, and a command-line interface with built-in configuration validation and health checks",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
