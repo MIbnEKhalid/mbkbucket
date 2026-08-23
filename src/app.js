@@ -9,6 +9,7 @@ import { notFoundHandler, globalErrorHandler } from "./middleware/error-handler.
 import bucketRoutes from "./routes/index.js";
 import { packageJson } from "./config/index.js";
 import { createLogger } from "./utils/logger.js";
+import { commonHandlebarsHelpers } from "./utils/helpers.js";
 
 const debugServer = createLogger('server');
 
@@ -46,8 +47,7 @@ export function createApp() {
   // Handlebars configuration
   server.engine("handlebars", engine({
     extname: ".handlebars",
-    defaultLayout: "main",
-    layoutsDir: path.join(__dirname, "..", "views", "layouts"),
+    defaultLayout: false,
     partialsDir: [
       path.join(__dirname, "..", "views", "templates"),
       path.join(__dirname, "..", "views", "templates", "notice"),
@@ -58,9 +58,7 @@ export function createApp() {
     ],
     cache: process.env.NODE_ENV === "production",
     helpers: {
-      eq: function (a, b) {
-        return a === b;
-      },
+      ...commonHandlebarsHelpers,
       mbkbucket_cachebuster: function () {
         return "?v=" + packageJson.version;
       }

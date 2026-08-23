@@ -74,6 +74,9 @@ function isRootModeApp(appName) {
 }
 
 export function ensureKeyHasAppPrefix(key = '') {
+  if (Array.isArray(key)) {
+    key = key.join('/');
+  }
   const app = getAppName();
   if (!key) throw new Error('Key is required');
 
@@ -103,6 +106,9 @@ export function ensureKeyHasAppPrefix(key = '') {
 }
 
 export function ensurePrefix(prefix = '') {
+  if (Array.isArray(prefix)) {
+    prefix = prefix.join('/');
+  }
   const app = getAppName();
 
   if (prefix && (prefix.includes('../') || prefix.includes('..\\') || /\.\.[\\/]/.test(prefix))) {
@@ -369,11 +375,12 @@ export async function downloadFile(key, options = {}) {
       key: keyToDownload,
     };
   } catch (error) {
-    console.error(`Download failed for key ${key}:`, error);
-
-    if (error && error.$metadata && error.$metadata.httpStatusCode === 304) {
+    if (error && (error.$metadata?.httpStatusCode === 304 || error.name === '304' || error.name === 'NotModified')) {
+      debugS3('File not modified (304) for key %s', keyToDownload);
       return { notModified: true, key: keyToDownload };
     }
+
+    console.error(`Download failed for key ${key}:`, error);
 
     if (error.name === 'NoSuchKey') {
       throw new Error(`File not found: ${key}`);

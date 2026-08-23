@@ -425,9 +425,11 @@ export async function downloadFileHandler(req, res) {
 
   try {
     const bucketName = req.activeBucket;
+    const rawKey = req.params.key;
+    const key = Array.isArray(rawKey) ? rawKey.join('/') : (rawKey || '');
     let keyToUse;
     try {
-      keyToUse = ensureKeyHasAppPrefix(req.params.key);
+      keyToUse = ensureKeyHasAppPrefix(key);
     } catch (e) {
       return res.status(400).json({ success: false, error: e.message });
     }

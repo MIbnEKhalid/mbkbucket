@@ -192,9 +192,11 @@ async function serveFileInline(req, res, keyToUse, { noindex = true, bucketName,
 export async function viewFile(req, res) {
   try {
     const bucketName = req.activeBucket;
+    const rawKey = req.params.key;
+    const key = Array.isArray(rawKey) ? rawKey.join('/') : (rawKey || '');
     let keyToUse;
     try {
-      keyToUse = ensureKeyHasAppPrefix(req.params.key);
+      keyToUse = ensureKeyHasAppPrefix(key);
     } catch (e) {
       return res.status(400).json({ message: e.message });
     }
@@ -216,7 +218,8 @@ export async function viewFile(req, res) {
 export async function playerPage(req, res) {
   try {
     const bucketName = req.activeBucket;
-    const key = req.params.key;
+    const rawKey = req.params.key;
+    const key = Array.isArray(rawKey) ? rawKey.join('/') : (rawKey || '');
     let keyToUse;
     try {
       keyToUse = ensureKeyHasAppPrefix(key);
@@ -240,7 +243,8 @@ export async function playerPage(req, res) {
 export async function publicView(req, res) {
   try {
     const bucketName = resolveBucketName();
-    const key = req.params.key;
+    const rawKey = req.params.key;
+    const key = Array.isArray(rawKey) ? rawKey.join('/') : (rawKey || '');
 
     // No directory indexing
     if (!key || key.endsWith('/')) {

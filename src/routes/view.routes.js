@@ -12,14 +12,14 @@ const router = express.Router();
 router.use(requireBucketView);
 
 // Player page for video/audio
-router.get('/player/:key(*)', sessRole('SuperAdmin'), playerPage);
+router.get('/player/*key', sessRole('SuperAdmin'), playerPage);
 
 // Inline file view
-router.get('/view/:key(*)', sessRole('SuperAdmin'), viewFile);
+router.get('/view/*key', sessRole('SuperAdmin'), viewFile);
 
 // Public view (conditionally enabled)
 if (mbkbucketVar?.publiView_enabled) {
-  router.get('/p_view/:key(*)', pviewRateLimit, pviewSecurity, publicView);
+  router.get('/p_view/*key', pviewRateLimit, pviewSecurity, publicView);
 }
 
 export default router;

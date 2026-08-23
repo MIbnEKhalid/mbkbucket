@@ -171,3 +171,27 @@ export function renderPlayerPage(safeFileName, encodedKey, bucketQuery) {
 </body>
 </html>`;
 }
+
+// ---------------------------------------------------------------------------
+// Common Handlebars helpers
+// ---------------------------------------------------------------------------
+
+export const commonHandlebarsHelpers = {
+  eq: (a, b) => a === b,
+  neq: (a, b) => a !== b,
+  or: (...args) => args.slice(0, -1).some(Boolean),
+  and: (...args) => args.slice(0, -1).every(Boolean),
+  not: (val) => !val,
+  gt: (a, b) => a > b,
+  gte: (a, b) => a >= b,
+  lt: (a, b) => a < b,
+  lte: (a, b) => a <= b,
+  includes: (arr, val) => (Array.isArray(arr) ? arr.includes(val) : false),
+  json: (obj) => JSON.stringify(obj, null, 2),
+  jsonStringify: (obj) => JSON.stringify(obj),
+  getInitials: (username) => {
+    if (!username) return '?';
+    const parts = username.split(/[._]/);
+    return parts.map(p => p.charAt(0)).join('').toUpperCase().substring(0, 2);
+  },
+};

@@ -1,5 +1,7 @@
+import path from "path";
 import { resolveBucketName, getAvailableBucketNames } from "../services/s3.service.js";
 import { renderPage, mbkautheVar } from "mbkauthe";
+import { commonHandlebarsHelpers } from "../utils/helpers.js";
 
 /**
  * Render the main bucket dashboard page.
@@ -7,13 +9,9 @@ import { renderPage, mbkautheVar } from "mbkauthe";
 export function renderBucketDashboard(req, res) {
   const allBuckets = getAvailableBucketNames();
   const configuredDefaultBucket = mbkautheVar?.bucket;
-
-  let bucketfilePath;
-  if (mbkautheVar?.APP_NAME === "portal") {
-    bucketfilePath = "bucketportal.handlebars";
-  } else {
-    bucketfilePath = "bucket.handlebars";
-  }
+  const isPortal = mbkautheVar?.APP_NAME === "portal";
+  const bucketfilePath = isPortal ? "bucketportal.handlebars" : "bucket.handlebars";
+  const portalLayout = isPortal ? path.resolve(process.cwd(), "views", "layouts", "main") : false;
 
   let selectedBucket;
 
@@ -26,9 +24,10 @@ export function renderBucketDashboard(req, res) {
       isSelected: name === fallbackSelected,
       isDefault: name === configuredDefaultBucket
     }));
-    return renderPage(req, res, bucketfilePath, mbkautheVar?.APP_NAME === "portal" ? true : false, {
+    return renderPage(req, res, bucketfilePath, isPortal, {
       page: "Admin Bucket",
-      layout: true,
+      helpers: commonHandlebarsHelpers,
+      ...(isPortal ? { layout: portalLayout } : {}),
       bucketvar: mbkautheVar?.bucket,
       selectedBucket: fallbackSelected,
       bucketOptions,
@@ -45,8 +44,10 @@ export function renderBucketDashboard(req, res) {
     isDefault: name === configuredDefaultBucket
   }));
 
-  renderPage(req, res, bucketfilePath, mbkautheVar?.APP_NAME === "portal" ? true : false, {
+  renderPage(req, res, bucketfilePath, isPortal, {
     page: "Admin Bucket",
+    helpers: commonHandlebarsHelpers,
+    ...(isPortal ? { layout: portalLayout } : {}),
     bucketvar: selectedBucket,
     selectedBucket,
     bucketOptions,

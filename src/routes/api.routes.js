@@ -61,6 +61,6 @@ router.post('/create-folder', sessRole('SuperAdmin'), createFolder);
 router.post('/delete', sessRole('SuperAdmin'), deleteItems);
 
 // Download
-router.get('/download/:key(*)', sessRole('SuperAdmin'), downloadFileHandler);
+router.get('/download/*key', sessRole('SuperAdmin'), downloadFileHandler);
 
 export default router;
