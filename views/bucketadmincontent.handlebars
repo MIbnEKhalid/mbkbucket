@@ -1,172 +1,142 @@
-{{!-- File Management System - Bucket Dashboard --}}
+{{!-- Gentelella v4 File Management System - Bucket Dashboard --}}
 <link rel="stylesheet" href="/mbkbucket/bucketadmin.css{{mbkbucket_cachebuster}}">
 <div id="bucketAppData" data-app-name="{{APP_NAME}}" hidden></div>
-<!-- File Statistics -->
-<div class="dashboard-card file-stats reveal-item reveal-delay-1">
-  <div class="card-body">
-    <div class="stats-content">
-      <div class="stats-icon">
-        <i class="fas fa-folder"></i>
-      </div>
-      <div class="stats-text">
-        <h2 id="totalFilesCount">Loading...</h2>
-        <p id="filterInfo">Loading file information...</p>
-      </div>
-      <div class="bucket-switcher-wrap">
-        <div class="bucket-switcher" role="group" aria-label="Bucket selection">
-          <label for="bucketSelector" class="bucket-switcher-label">Active Bucket</label>
-          <div class="bucket-switcher-control">
-            <i class="fas fa-database bucket-switcher-icon" aria-hidden="true"></i>
-            <select id="bucketSelector" class="form-control-sm bucket-switcher-select" aria-label="Select connected bucket">
-              {{#if bucketOptions.length}}
-                {{#each bucketOptions}}
-                  <option value="{{name}}" {{#if isSelected}}selected{{/if}}>{{name}}{{#if isDefault}} (defualt){{/if}}</option>
-                {{/each}}
-              {{else}}
-                <option value="">No buckets configured</option>
-              {{/if}}
-            </select>
-            <i class="fas fa-chevron-down bucket-switcher-caret" aria-hidden="true"></i>
-          </div>
-          <small id="bucketSwitchStatus" class="bucket-switcher-status is-hidden">Switching bucket...</small>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
-{{> bucketadmin_alerts }}
-
-<div class="mb-4 reveal-item reveal-delay-2">
-  <!-- Upload Form -->
-  <div class="col-lg-12">
-    <div class="dashboard-card h-100">
-      <div class="card-header upload-card-header" id="uploadToggleBtn">
-        <h5 class="card-title">
-          <div class="card-icon">
-            <i class="fas fa-upload"></i>
-          </div>
-          Upload File
-        </h5>
-        <button type="button" class="collapse-btn">
-          <i class="fas fa-chevron-down"></i>
+<div class="page-wrapper">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-header-row">
+      <div>
+        <div class="page-pretitle">Storage &amp; Buckets</div>
+        <h1 class="page-title">Files</h1>
+      </div>
+      <div class="page-actions">
+        <button type="button" class="btn btn-outline" id="new-folder-btn" data-action="create-folder">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 011-1h3l2 2h5a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/><path d="M8 7v4M6 9h4"/></svg>
+          New folder
+        </button>
+        <button type="button" class="btn btn-primary" id="upload-btn" data-action="upload-files">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 11v3H2v-3"/><path d="M11 6L8 3 5 6"/><line x1="8" y1="3" x2="8" y2="11"/></svg>
+          Upload
         </button>
       </div>
-      <div class="card-body collapsible-content" id="uploadSection">
-        <form id="uploadForm" action="/mbkbucket/upload" method="post" enctype="multipart/form-data">
-          <input type="hidden" name="prefix" value="{{prefix}}">
+    </div>
+  </div>
 
-          <div class="mb-3">
-            <label for="fileInput" class="form-label">Select Files or drag & drop</label>
-            <div id="dropZone" class="upload-drop-zone">
-              <div class="drop-zone-content">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <div class="drop-text">Drop files here or click to browse</div>
-                <div class="drop-hint">Supports multiple files</div>
-              </div>
+  {{> bucketadmin_alerts }}
+
+  <!-- Main File Manager Card -->
+  <div class="card file-manager">
+    <div class="fm-layout">
+      <!-- Tree sidebar -->
+      <aside class="fm-tree-wrap">
+        <div class="fm-tree-header">
+          <span class="fm-tree-title">Explorer</span>
+        </div>
+        <div id="fm-tree" class="fm-tree"></div>
+
+        <div class="fm-storage">
+          <div class="fm-storage-label">Connected Bucket</div>
+          <div class="bucket-switcher-wrap mb-2">
+            <div class="bucket-switcher-control">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="bucket-switcher-icon"><path d="M2 4.5C2 3.12 5.13 2 9 2s7 1.12 7 2.5v7c0 1.38-3.13 2.5-7 2.5s-7-1.12-7-2.5v-7z"/><path d="M2 8c0 1.38 3.13 2.5 7 2.5s7-1.12 7-2.5"/></svg>
+              <select id="bucketSelector" class="bucket-switcher-select" aria-label="Select connected bucket">
+                {{#if bucketOptions.length}}
+                  {{#each bucketOptions}}
+                    <option value="{{name}}" {{#if isSelected}}selected{{/if}}>{{name}}{{#if isDefault}} (default){{/if}}</option>
+                  {{/each}}
+                {{else}}
+                  <option value="">No buckets configured</option>
+                {{/if}}
+              </select>
             </div>
-            <input type="file" class="form-control d-none" id="fileInput" name="files" multiple>
-            <div class="form-text">
-              <i class="fas fa-info-circle"></i>
-              You can drop multiple files. Large files will use chunked upload when available.
+            <small id="bucketSwitchStatus" class="bucket-switcher-status is-hidden">Switching bucket...</small>
+          </div>
+          <div class="storage-bar"><div id="storageUsageBar" style="width: 100%; background: var(--primary);"></div></div>
+          <div class="fm-storage-meta d-flex justify-content-between align-items-center">
+            <span id="totalFilesCount">Loading...</span>
+          </div>
+          <div id="filterInfo" class="fm-storage-subinfo"></div>
+        </div>
+      </aside>
+
+      <!-- Main area -->
+      <section class="fm-main">
+        <div class="fm-toolbar">
+          <nav class="fm-breadcrumb breadcrumb" id="fm-breadcrumb" aria-label="Path"></nav>
+          
+          <div class="fm-toolbar-actions">
+            <!-- Quick filters -->
+            <div class="quick-filter-group" role="group" aria-label="Quick filters">
+              <button type="button" class="quick-filter-btn active" data-filter="all">All</button>
+              <button type="button" class="quick-filter-btn" data-filter="media">Media</button>
+              <button type="button" class="quick-filter-btn" data-filter="docs">Docs</button>
+              <button type="button" class="quick-filter-btn" data-filter="code">Code</button>
+            </div>
+
+            <!-- Search -->
+            <div class="search-box">
+              <svg class="s-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+              <input type="text" id="searchInput" placeholder="Search files…" aria-label="Search files">
+              <button type="button" class="search-clear-btn" id="searchClearBtn" style="display: none;" aria-label="Clear search">&times;</button>
+            </div>
+
+            <!-- View toggle -->
+            <div class="fm-view-toggle">
+              <button type="button" class="view-btn active" id="view-grid" aria-label="Grid view" title="Grid view">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+              </button>
+              <button type="button" class="view-btn" id="view-list" aria-label="List view" title="List view">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
+              </button>
             </div>
           </div>
+        </div>
 
-          <!-- Upload Queue -->
-          <div id="uploadQueue" class="mb-3"></div>
-
-          <!-- Upload Progress (global fallback) -->
-          <div id="uploadProgress" class="mb-3 is-hidden">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="upload-label">Uploading...</span>
-              <span id="uploadPercent" class="upload-percent">0%</span>
-            </div>
-            <div class="progress-container">
-              <div id="progressBar" class="progress-bar progress-bar-empty"></div>
-            </div>
-            <div class="upload-details mt-2">
-              <small id="uploadDetails" class="text-muted"></small>
-            </div>
+        <!-- File Grid / List Container -->
+        <div id="fileListContainer" class="fm-grid-wrap">
+          <div id="fm-grid" class="fm-grid view-grid">
+            {{> bucketadmin_filelist_skeleton }}
           </div>
 
-          <div class="d-grid gap-2 d-md-flex">
-            <button type="button" class="btn btn-lg btn-primary" id="startUploadBtn">
-              <i class="fas fa-play"></i>
-              Start Uploads
-            </button>
-            <button type="button" class="btn btn-lg btn-primary" id="clearQueueBtn">
-              <i class="fas fa-times-circle"></i>
-              Clear Queue
-            </button>
+          <!-- Empty state -->
+          <div id="fm-empty" class="fm-empty" style="display: none;" hidden>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h4l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            <div class="empty-title">This folder is empty</div>
+            <div class="empty-desc">Drag files into the browser or use the Upload button to add files.</div>
+            <div class="empty-actions mt-3">
+              <button type="button" class="btn btn-outline btn-sm me-2" data-action="create-folder">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 011-1h3l2 2h5a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/><path d="M8 7v4M6 9h4"/></svg>
+                New Folder
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" data-action="upload-files">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 11v3H2v-3"/><path d="M11 6L8 3 5 6"/><line x1="8" y1="3" x2="8" y2="11"/></svg>
+                Upload Files
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <!-- Pagination -->
+        <div id="paginationContainer" class="pagination-container" style="display: none;">
+          <nav aria-label="File pagination">
+            <ul class="pagination" id="paginationList"></ul>
+          </nav>
+        </div>
+      </section>
     </div>
   </div>
 </div>
 
-<!-- File List -->
-<div class="dashboard-card reveal-item reveal-delay-3">
-  <div class="card-header file-list-header">
-    <h5 class="card-title">
-      <div>
-        <i class="fas fa-folder-open"></i>
-      </div>
-      <span id="fileListTitle">Files</span>
-    </h5>
-
-    <!-- Inline Search (moved from separate card) -->
-    <div class="search-inline">
-      <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search files and folders..." aria-label="Search files">
-      <button type="button" class="btn btn-sm btn-primary" data-action="search" aria-label="Search"><i class="fas fa-search"></i></button>
-      <button type="button" class="btn btn-sm btn-outline-secondary" data-action="clear-search" aria-label="Clear search"><i class="fas fa-times"></i></button>
-    </div>
-
-    <div class="quick-filter-group" role="group" aria-label="Quick filters">
-      <button type="button" class="btn btn-sm quick-filter-btn active" data-filter="all">All</button>
-      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="media">Media</button>
-      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="docs">Docs</button>
-      <button type="button" class="btn btn-sm quick-filter-btn" data-filter="code">Code</button>
-    </div>
-
-    <div class="btn-group" role="group" aria-label="Actions">
-      <button type="button" class="btn btn-sm btn-success" data-action="create-file" title="New Text File">
-        <i class="fas fa-file-alt"></i> New File
-      </button>
-      <button type="button" class="btn btn-sm btn-outline-success" data-action="create-folder" title="New Folder">
-        <i class="fas fa-folder-plus"></i> New Folder
-      </button>
-    </div>
-
-    <div class="btn-group" role="group" aria-label="View Mode">
-      <button type="button" class="btn btn-sm btn-light view-toggle-btn view-btn-left active" id="viewBtnFolder" data-view-mode="folder" title="Folder View">
-        <i class="fas fa-folder"></i> Folders
-      </button>
-      <button type="button" class="btn btn-sm btn-outline-light view-toggle-btn view-btn-right" id="viewBtnFlat" data-view-mode="flat" title="Flat List (All Files)">
-        <i class="fas fa-list-ul"></i> Flat View
-      </button>
-    </div>
-  </div>
-  <div class="card-body file-list-card-body">
-    <div id="fileListContainer">
-      {{> bucketadmin_filelist_skeleton }}
-    </div>
-
-    <!-- Pagination -->
-    <div id="paginationContainer" class="pagination-container">
-      <nav aria-label="File pagination">
-        <ul class="pagination" id="paginationList">
-        </ul>
-      </nav>
-    </div>
-  </div>
-</div>
-
+{{> bucketadmin_upload_modal }}
+{{> bucketadmin_newfolder_modal }}
 {{> bucketadmin_delete_modal }}
-
 {{> bucketadmin_preview_modal }}
 
 <!-- Toast Container -->
 <div id="toast-container" class="toast-container"></div>
+
+<!-- Context Menu Element -->
+<div id="fm-context-menu" class="fm-context-menu" style="display: none;"></div>
 
 <script src="/mbkbucket/bucketadmin.js{{mbkbucket_cachebuster}}"></script>

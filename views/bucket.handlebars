@@ -7,7 +7,7 @@
     <title>{{#if page}}{{page}} - {{/if}}Web Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="/mbkauthe/main.js" defer></script>
     <script src="https://portal.mbktech.org/Assets/Scripts/auto-ids.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -26,26 +26,34 @@
             --warning-color-ml: #d97706;
             --success-color-ml: #16a34a;
             --info-color-ml: #3b82f6;
-            --border-radius-r-ml: 0.5rem;
-            --border-radius-sm-ml: 0.25rem;
-            --border-radius-lg-ml: 0.75rem;
-            --shadow-s-ml: 0 2px 4px rgba(0, 0, 0, 0.1);
-            --shadow-md-ml: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg-ml: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --transition-base-ml: all 0.2s ease;
-            --transition-fast-ml: all 0.15s ease;
-            --main-border-color: var(--gray-light-color-ml);
-            --color-accent: var(--primary-color-ml);
-            --color-text: var(--dark-color-ml);
-            --color-bg: var(--light-color-ml);
+
+            --primary: var(--primary-color-ml);
+            --primary-lt: var(--primary-light-color-ml);
+            --primary-dk: var(--primary-dark-color-ml);
+            --primary-hover: #0d635c;
+
+            --body-bg: var(--light-color-ml);
+            --bg-surface: rgba(255, 255, 255, 0.88);
+            --bg-surface-secondary: rgba(244, 247, 243, 0.7);
+            --bg-surface-tertiary: #e9f2ee;
+
+            --border-color: rgba(15, 118, 110, 0.15);
+            --border-color-light: rgba(15, 118, 110, 0.08);
+
+            --text: var(--dark-color-ml);
+            --text-secondary: #4a5c5a;
+            --text-muted: var(--gray-color-ml);
+            --text-disabled: #a0b2af;
+
             --font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-            --font-family-headings: "Sora", "Segoe UI", sans-serif
+            --font-family-headings: "Sora", "Segoe UI", sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
         * {
             margin: 0;
             padding: 0;
-            box-sizing: border-box
+            box-sizing: border-box;
         }
 
         body {
@@ -61,7 +69,7 @@
             line-height: 1.6;
             font-size: 14px;
             position: relative;
-            isolation: isolate
+            isolation: isolate;
         }
 
         body::before,
@@ -70,7 +78,7 @@
             position: fixed;
             border-radius: 999px;
             pointer-events: none;
-            z-index: -1
+            z-index: -1;
         }
 
         body::before {
@@ -78,7 +86,7 @@
             height: 260px;
             left: -80px;
             top: 18vh;
-            background: radial-gradient(circle, rgba(15, 118, 110, 0.16) 0, rgba(15, 118, 110, 0) 70%)
+            background: radial-gradient(circle, rgba(15, 118, 110, 0.16) 0, rgba(15, 118, 110, 0) 70%);
         }
 
         body::after {
@@ -86,23 +94,7 @@
             height: 300px;
             right: -120px;
             bottom: 10vh;
-            background: radial-gradient(circle, rgba(251, 146, 60, 0.18) 0, rgba(251, 146, 60, 0) 72%)
-        }
-
-        /* Removed unused sidebar/menu styles to reduce CSS size. */
-
-        .logo {
-            font-family: var(--font-family-headings);
-            font-size: 1.65rem;
-            font-weight: 700;
-            color: #0b4f4a;
-            display: flex;
-            align-items: center;
-            gap: .5rem
-        }
-
-        .logo img {
-            width: 35px
+            background: radial-gradient(circle, rgba(251, 146, 60, 0.18) 0, rgba(251, 146, 60, 0) 72%);
         }
 
         .main-content {
@@ -110,7 +102,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            transition: var(--transition-base-ml)
+            min-height: 100vh;
         }
 
         .top-nav {
@@ -119,139 +111,77 @@
             padding: .75rem 1.5rem;
             display: flex;
             align-items: center;
-            justify-content: flex-end;
-            box-shadow: var(--shadow-md-ml);
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
             z-index: 90;
             border-bottom: 1px solid rgba(255, 255, 255, .75);
-            gap: 1rem
+            gap: 1rem;
         }
 
-        /* Removed unused notification and profile styles to reduce CSS size. */
+        .logo {
+            font-family: var(--font-family-headings);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0b4f4a;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .logo img {
+            width: 32px;
+            height: 32px;
+        }
 
         .content-area {
             flex: 1;
-            padding: 1.6rem;
-            overflow-y: auto
+            padding: 1.5rem;
+            overflow-y: auto;
         }
 
         .content-area::-webkit-scrollbar {
-            width: 8px
+            width: 8px;
         }
 
         .content-area::-webkit-scrollbar-track {
-            background: 0 0
+            background: transparent;
         }
 
         .content-area::-webkit-scrollbar-thumb {
             background: var(--gray-color-ml);
-            border-radius: 4px
+            border-radius: 4px;
         }
 
         .content-area::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-color-ml)
+            background: var(--primary-color-ml);
         }
 
-        .page-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.2rem;
-            padding: 1rem 1.2rem;
-            border: 1px solid rgba(255, 255, 255, .9);
-            border-radius: 1rem;
-            background: rgba(255, 255, 255, .74);
-            box-shadow: 0 12px 34px rgba(15, 23, 42, .07)
-        }
-
-        .page-title {
-            font-family: var(--font-family-headings);
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark-color-ml);
-            margin: 0
-        }
-
-        .breadcrumb {
-            display: flex;
-            align-items: center;
-            color: var(--gray-color-ml);
-            font-size: .875rem;
-            background: linear-gradient(135deg, rgba(15, 118, 110, .08), rgba(251, 146, 60, .08));
-            padding: .4rem .85rem;
-            border-radius: 999px;
-            border: 1px solid rgba(15, 118, 110, .15)
-        }
-
-        .breadcrumb a {
-            color: var(--primary-color-ml);
-            text-decoration: none;
-            transition: var(--transition-base-ml);
-            font-weight: 500
-        }
-
-        .breadcrumb a:hover {
-            color: var(--primary-dark-color-ml)
-        }
-
-        .breadcrumb .separator {
-            margin: 0 .5rem;
-            color: var(--gray-color-ml)
-        }
-
-        @media (max-width:992px) {
-            .main-content {
-                margin-left: 0 !important
-            }
-
-            .content-area {
-                padding: 1.5rem
-            }
-        }
-
-        @media (max-width:768px) {
+        @media (max-width: 768px) {
             .top-nav {
-                padding: .25rem 1rem
+                padding: .5rem 1rem;
             }
-
             .content-area {
-                padding: 1rem
-            }
-
-            .page-header {
-                flex-direction: row;
-                align-items: flex-start;
-                gap: 1rem
-            }
-
-            .page-title {
-                font-size: 1.5rem
+                padding: 0.85rem;
             }
         }
-
-
     </style>
     {{> showmessage }}
 </head>
 
 <body>
-
     <div class="main-content">
         <nav class="top-nav">
-            <div class="logo">
-                <img onclick="window.location='/mbkbucket'" src="/icon.svg" alt="Logo">
-                <span onclick="window.location='/mbkbucket'" style="cursor:pointer;">BKBucket</span>
+            <div class="logo" onclick="window.location='/mbkbucket'">
+                <img src="/icon.svg" alt="Logo">
+                <span>MBKBucket</span>
             </div>
 
             {{> profilemenu }}
         </nav>
 
         <div class="content-area">
-            <div class="page-header">
-                <h1 class="page-title">{{#if page}}{{page}}{{else}}Dashboard{{/if}}</h1>
-                <div class="breadcrumb">
-                    <span>{{#if page}}{{page}}{{else}}Home{{/if}}</span>
-                </div>
-            </div>
             {{> bucketadmincontent }}
         </div>
     </div>

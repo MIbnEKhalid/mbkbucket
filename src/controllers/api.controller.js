@@ -34,7 +34,9 @@ function resolvePrefix(req, res, prefix) {
  * Build a full S3 key from a prefix and filename, stripping trailing slashes.
  */
 function buildKey(prefix, fileName) {
-  return `${prefix.replace(/\/+$/, '')}/${fileName}`;
+  const cleanPrefix = String(prefix || '').replace(/^\/+/, '').replace(/\/+$/, '');
+  const cleanName = String(fileName || '').replace(/^\/+/, '');
+  return cleanPrefix ? `${cleanPrefix}/${cleanName}` : cleanName;
 }
 
 async function cleanupFolderMarker(folderPath, bucketName) {
@@ -121,8 +123,8 @@ export async function listFiles(req, res) {
     let legacyFallback = false;
 
     if (useOptimizedListing) {
-      let listPrefix = effectivePrefix;
-      if (listPrefix === getAppName() && !listPrefix.endsWith('/')) {
+      let listPrefix = effectivePrefix ? String(effectivePrefix).replace(/^\/+/, '') : '';
+      if (listPrefix && !listPrefix.endsWith('/')) {
         listPrefix += '/';
       }
 
@@ -135,11 +137,12 @@ export async function listFiles(req, res) {
 
       files = (result.Contents || []).filter(f => !f.Key.endsWith('/'));
       folders = (result.CommonPrefixes || [])
-        .filter(p => p.Prefix !== effectivePrefix)
+        .filter(p => p.Prefix !== listPrefix && p.Prefix !== effectivePrefix)
         .map(p => p.Prefix);
       nextContinuationToken = result.NextContinuationToken;
+    }
 
-    } else {
+    else {
       let continuationToken = undefined;
 
       do {
@@ -350,7 +353,14 @@ export async function createFolder(req, res) {
     const effectivePrefix = resolvePrefix(req, res, prefix);
     if (effectivePrefix === null) return;
 
-    const folderKey = `${effectivePrefix.replace(/\/+$/, '')}/${folderName}/`;
+    const cleanName = String(folderName).replace(/^\/+/, '').replace(/\/+$/, '');
+    let folderKey;
+    if (effectivePrefix && !cleanName.startsWith(effectivePrefix)) {
+      const cleanPrefix = effectivePrefix.replace(/\/+$/, '');
+      folderKey = `${cleanPrefix}/${cleanName}/`;
+    } else {
+      folderKey = `${cleanName}/`;
+    }
 
     const markerExists = await fileExists(folderKey, bucketName);
     if (markerExists) return res.status(409).json({ success: false, error: 'Folder already exists' });

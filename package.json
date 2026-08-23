@@ -18,21 +18,22 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.968.0",
     "@aws-sdk/s3-request-presigner": "^3.1000.0",
+    "admindb": "^2.2.1",
     "compression": "^1.8.0",
     "debug": "^2.6.9",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "express-handlebars": "^8.0.3",
     "express-rate-limit": "^7.0.1",
-    "mbkauthe": "5.3.2",
+    "mbkauthe": "5.3.5",
     "multer": "^2.0.2",
     "pg": "^8.16.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.1.14"
   },
-    "overrides": {
+  "overrides": {
     "csurf": {
       "cookie": "^0.7.0"
     }

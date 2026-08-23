@@ -1,0 +1,54 @@
+<!-- Upload Modal -->
+<div class="modal" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="uploadModalLabel">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="modal-title-icon"><path d="M14 11v3H2v-3"/><path d="M11 6L8 3 5 6"/><line x1="8" y1="3" x2="8" y2="11"/></svg>
+          Upload Files
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeUploadModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="uploadForm" action="/mbkbucket/upload" method="post" enctype="multipart/form-data">
+          <input type="hidden" name="prefix" value="{{prefix}}" id="uploadPrefixInput">
+
+          <!-- Drop Zone -->
+          <div id="dropZone" class="upload-drop-zone">
+            <div class="drop-zone-content">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="drop-icon"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <div class="drop-text">Drag files here, or <span class="drop-browse-link">browse</span></div>
+              <div class="drop-hint">Supports multiple files &amp; large chunked uploads</div>
+            </div>
+            <input type="file" class="form-control d-none" id="fileInput" name="files" multiple>
+          </div>
+
+          <!-- Upload Queue List -->
+          <div id="uploadQueue" class="upload-queue mt-3"></div>
+
+          <!-- Upload Progress -->
+          <div id="uploadProgress" class="upload-progress-container mt-3" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="upload-status-label" id="uploadStatusLabel">Uploading...</span>
+              <span id="uploadPercent" class="upload-percent">0%</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div id="progressBar" class="progress-bar-inner" style="width: 0%;"></div>
+            </div>
+            <div class="upload-meta-info mt-1">
+              <small id="uploadDetails" class="text-muted"></small>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeUploadModal()">Cancel</button>
+        <button type="button" class="btn btn-outline" id="clearQueueBtn" style="display: none;">Clear Queue</button>
+        <button type="button" class="btn btn-primary" id="startUploadBtn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 11v3H2v-3"/><path d="M11 6L8 3 5 6"/><line x1="8" y1="3" x2="8" y2="11"/></svg>
+          Start Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
