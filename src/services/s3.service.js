@@ -44,9 +44,10 @@ function getDefaultBucketName() {
 }
 
 export function resolveBucketName(bucketName) {
-  const candidate = (bucketName === undefined || bucketName === null)
+  const rawCandidate = (typeof bucketName === 'string') ? bucketName.trim() : bucketName;
+  const candidate = (rawCandidate === undefined || rawCandidate === null || rawCandidate === '')
     ? getDefaultBucketName()
-    : String(bucketName).trim();
+    : String(rawCandidate);
 
   if (!candidate) {
     throw new Error('No bucket selected. Provide ?bucket=<name> or configure a default bucket in mbkautheVar.bucket.');

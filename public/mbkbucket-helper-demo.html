@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Helper Utils Demo — MBKBucket</title>
+  <meta name="description" content="Interactive demo of MBKBucket frontend helper utilities: gallery picker, file input, upload widget, multi-select, live preview binding, and API helpers.">
+
+  <!-- Fonts (same as bucket.handlebars) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- MBKBucket design system + helper styles -->
+  <link rel="stylesheet" href="/mbkbucket/bucketadmin.css">
+  <link rel="stylesheet" href="/mbkbucket/mbkbucket-helper.css">
+
+  <style>
+    /* ── Page shell (mirrors bucket.handlebars body) ───────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 14%, rgba(16, 185, 129, 0.1), transparent 44%),
+        radial-gradient(circle at 88% 8%,  rgba(15, 118, 110, 0.08), transparent 40%),
+        linear-gradient(160deg, #eef7f2 0%, #f8fbf7 52%, #eaf2ef 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient blobs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 280px; height: 280px;
+      top: 10vh; left: -80px;
+      background: radial-gradient(circle, rgba(15,118,110,0.14) 0, transparent 70%);
+    }
+    body::after {
+      width: 320px; height: 320px;
+      bottom: 8vh; right: -100px;
+      background: radial-gradient(circle, rgba(16,185,129,0.1) 0, transparent 70%);
+    }
+
+    /* ── Top nav ───────────────────────────────────────────────── */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.75);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      gap: 1rem;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-headings);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary-dark-color-ml);
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 30px; height: 30px;
+      background: var(--primary-color-ml);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .nav-badge {
+      font-family: var(--font);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 2px 8px;
+      background: var(--primary-light-color-ml);
+      color: var(--primary-dark-color-ml);
+      border-radius: 20px;
+      border: 1px solid rgba(15,118,110,0.2);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .nav-link {
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .nav-link:hover { background: var(--primary-light-color-ml); color: var(--primary-dark-color-ml); }
+    .nav-link.active { background: var(--primary-light-color-ml); color: var(--primary-dark-color-ml); font-weight: 600; }
+
+    .nav-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--primary-color-ml);
+      text-decoration: none;
+      border: 1px solid var(--border-color);
+      background: rgba(255,255,255,0.8);
+      transition: all 0.15s ease;
+    }
+    .nav-back:hover { background: var(--primary-light-color-ml); border-color: var(--primary-color-ml); }
+
+    /* ── Page layout ───────────────────────────────────────────── */
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1020px;
+      margin: 0 auto;
+      padding: 28px 24px 72px;
+    }
+
+    /* ── Page header ───────────────────────────────────────────── */
+    .demo-page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding: 18px 22px;
+      background: rgba(255,255,255,0.74);
+      border: 1px solid rgba(255,255,255,0.9);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 34px rgba(15,23,42,0.05);
+    }
+
+    .demo-page-pretitle {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--primary-color-ml);
+      margin-bottom: 3px;
+    }
+
+    .demo-page-title {
+      font-family: var(--font-headings);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--dark-color-ml);
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    .demo-page-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      max-width: 540px;
+    }
+
+    .demo-include-snippet {
+      background: var(--light-color-ml);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--primary-dark-color-ml);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .demo-include-snippet .kw { color: var(--primary-color-ml); font-weight: 600; }
+    .demo-include-snippet .str { color: var(--purple); }
+    .demo-include-snippet .line { display: block; line-height: 1.8; }
+
+    /* ── Section spacing ───────────────────────────────────────── */
+    .demo-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── Section card ──────────────────────────────────────────── */
+    .demo-section {
+      background: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.9);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 14px 38px rgba(15,23,42,0.05);
+      overflow: hidden;
+    }
+
+    .demo-section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(244,247,243,0.65);
+    }
+
+    .section-num {
+      width: 24px; height: 24px;
+      border-radius: 7px;
+      background: var(--primary-color-ml);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-family: var(--font-headings);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--dark-color-ml);
+      flex: 1;
+    }
+
+    .section-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .chip {
+      padding: 2px 9px;
+      background: var(--primary-light-color-ml);
+      color: var(--primary-dark-color-ml);
+      border: 1px solid rgba(15,118,110,0.15);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    /* ── Tab bar ───────────────────────────────────────────────── */
+    .demo-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255,255,255,0.6);
+    }
+
+    .demo-tab {
+      padding: 9px 18px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.14s ease;
+      user-select: none;
+    }
+    .demo-tab:hover { color: var(--primary-color-ml); }
+    .demo-tab.active {
+      color: var(--primary-dark-color-ml);
+      border-bottom-color: var(--primary-color-ml);
+      background: rgba(215,244,238,0.3);
+    }
+
+    /* ── Pane areas ────────────────────────────────────────────── */
+    .demo-pane { display: none; padding: 24px; }
+    .demo-pane.active { display: block; }
+
+    .code-pane { display: none; }
+    .code-pane.active { display: block; }
+
+    /* ── Code block ────────────────────────────────────────────── */
+    .code-block {
+      background: var(--dark-color-ml);
+      color: #d4e6e1;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      padding: 20px 24px;
+      overflow-x: auto;
+      border-radius: 0;
+      margin: 0;
+    }
+    .code-block .cm  { color: #667c79; font-style: italic; }
+    .code-block .kw  { color: #4fc3a1; }
+    .code-block .fn  { color: #a3d9cc; }
+    .code-block .str { color: #c3e88d; }
+    .code-block .num { color: #f78c6c; }
+    .code-block .tag { color: #86e1fc; }
+    .code-block .at  { color: #c3e88d; }
+
+    /* ── Form helpers ──────────────────────────────────────────── */
+    .form-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .form-hint {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    .form-row { margin-bottom: 20px; }
+    .form-row:last-child { margin-bottom: 0; }
+
+    .inline-code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--bg-surface-tertiary);
+      color: var(--primary-dark-color-ml);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* ── Live Preview Box for Avatar ──────────────────────────── */
+    .avatar-preview-wrap {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: var(--light-color-ml);
+      border: 1px dashed var(--border-color);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+    }
+    .avatar-preview-img {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--primary-color-ml);
+      background: #ffffff;
+      box-shadow: 0 4px 10px rgba(15,118,110,0.15);
+    }
+    .avatar-preview-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .avatar-preview-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--dark-color-ml);
+    }
+    .avatar-preview-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    /* ── Output box ────────────────────────────────────────────── */
+    .output-box {
+      background: var(--light-color-ml);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      min-height: 42px;
+      margin-top: 14px;
+      word-break: break-all;
+      line-height: 1.5;
+      transition: border-color 0.15s ease;
+    }
+    .output-box .output-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--primary-color-ml);
+      display: block;
+      margin-bottom: 3px;
+    }
+    .output-box.has-value {
+      border-color: rgba(22,163,74,0.3);
+      background: rgba(22,163,74,0.04);
+      color: var(--success-color-ml);
+    }
+
+    /* ── Divider ───────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 20px 0;
+    }
+
+    /* ── Text input (demo inputs) ──────────────────────────────── */
+    .demo-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--light-color-ml);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--dark-color-ml);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .demo-input:focus {
+      border-color: var(--primary-color-ml);
+      box-shadow: 0 0 0 3px rgba(15,118,110,0.1);
+    }
+
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ── API result panel ──────────────────────────────────────── */
+    .api-result {
+      background: var(--dark-color-ml);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 14px;
+    }
+    .api-result-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #667c79;
+    }
+    .api-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-disabled);
+      flex-shrink: 0;
+    }
+    .api-dot.ok  { background: var(--success-color-ml); box-shadow: 0 0 6px rgba(22,163,74,0.5); }
+    .api-dot.err { background: var(--danger-color-ml);  box-shadow: 0 0 6px rgba(220,38,38,0.5); }
+    .api-result pre {
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #d4e6e1;
+      overflow-x: auto;
+      max-height: 240px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── Toast demo buttons ────────────────────────────────────── */
+    .toast-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    .toast-btn {
+      padding: 9px 14px;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+    .toast-btn:active { transform: scale(0.97); }
+    .toast-btn:hover  { transform: translateY(-1px); }
+
+    .tb-success { background: rgba(22,163,74,0.08);  border-color: rgba(22,163,74,0.25);  color: var(--success-color-ml); }
+    .tb-error   { background: rgba(220,38,38,0.08);  border-color: rgba(220,38,38,0.25);  color: var(--danger-color-ml); }
+    .tb-warning { background: rgba(217,119,6,0.08);  border-color: rgba(217,119,6,0.25);  color: var(--warning-color-ml); }
+    .tb-info    { background: rgba(6,111,209,0.08);  border-color: rgba(6,111,209,0.25);  color: var(--info-color-ml); }
+
+    .form-submit-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .demo-footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 20px 24px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(255,255,255,0.6);
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+    .demo-footer a {
+      color: var(--primary-color-ml);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .demo-footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 640px) {
+      .page-wrap { padding: 16px 14px 60px; }
+      .top-nav { padding: 0 1rem; }
+      .nav-links { display: none; }
+      .demo-page-header { flex-direction: column; }
+      .demo-include-snippet { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Top navigation ──────────────────────────────────────────────── -->
+<nav class="top-nav">
+  <a class="nav-logo" href="/mbkbucket">
+    <div class="nav-logo-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3C8 3 4 5 4 8v1c0 3 2 5 8 6 6-1 8-3 8-6V8c0-3-4-5-8-5z"/>
+        <path d="M4 9c0 3 2 5 8 6 6-1 8-3 8-6"/>
+        <path d="M4 13c0 3 2 5 8 6 6-1 8-3 8-6"/>
+      </svg>
+    </div>
+    MBKBucket
+    <span class="nav-badge">Helper Demo</span>
+  </a>
+
+  <div class="nav-links">
+    <a class="nav-link active" href="#gallery">Gallery</a>
+    <a class="nav-link" href="#picker">Live Preview Picker</a>
+    <a class="nav-link" href="#uploader">Upload Widget</a>
+    <a class="nav-link" href="#api">URL &amp; API</a>
+    <a class="nav-link" href="#toast">Toasts</a>
+  </div>
+
+  <a class="nav-back" href="/mbkbucket">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Admin Dashboard
+  </a>
+</nav>
+
+<!-- ── Page ────────────────────────────────────────────────────────── -->
+<div class="page-wrap">
+
+  <!-- Page header -->
+  <div class="demo-page-header">
+    <div>
+      <div class="demo-page-pretitle">Developer Reference</div>
+      <h1 class="demo-page-title">MBKBucket Frontend Helpers</h1>
+      <p class="demo-page-desc">Single-line includes for any web page. In-modal upload, multi-file selection, live image preview bindings, and full S3/R2 utilities.</p>
+    </div>
+    <div class="demo-include-snippet">
+      <span class="line"><span class="kw">&lt;link</span>  rel="stylesheet" href=<span class="str">"/mbkbucket/mbkbucket-helper.css"</span><span class="kw">&gt;</span></span>
+      <span class="line"><span class="kw">&lt;script</span> src=<span class="str">"/mbkbucket/mbkbucket-helper.js"</span><span class="kw">&gt;&lt;/script&gt;</span></span>
+    </div>
+  </div>
+
+  <div class="demo-sections">
+
+    <!-- ── 1. Gallery Browser (Single & Multi-Select with In-Modal Upload) ────── -->
+    <div class="demo-section" id="gallery">
+      <div class="demo-section-header">
+        <div class="section-num">1</div>
+        <div class="section-title">Gallery Browser Modal</div>
+        <div class="section-chips">
+          <span class="chip">In-Modal Upload</span>
+          <span class="chip">Multi-Select</span>
+          <span class="chip">Quick Filters</span>
+          <span class="chip">Drag &amp; Drop</span>
+          <span class="chip">Grid / List</span>
+        </div>
+      </div>
+
+      <div class="demo-tabs">
+        <div class="demo-tab active" data-tab="demo" data-group="gallery">Live Demo</div>
+        <div class="demo-tab" data-tab="js" data-group="gallery">JS API</div>
+        <div class="demo-tab" data-tab="attr" data-group="gallery">Data-attribute</div>
+      </div>
+
+      <!-- Demo -->
+      <div class="demo-pane active" data-pane="gallery-demo">
+        <div class="form-row">
+          <div class="form-label">Single file selection &amp; in-modal upload:</div>
+          <div class="flex-row">
+            <button class="btn btn-primary" id="demo-open-gallery">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Browse Single File
+            </button>
+            <button class="btn btn-outline" id="demo-open-gallery-multi">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              Browse Multiple Files (<code style="font-family:var(--font-mono);font-size:11px">multiple: true</code>)
+            </button>
+          </div>
+          <div class="output-box" id="gallery-output">
+            <span class="output-label">Selected Result</span>
+            — nothing selected yet
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="form-label">Data-attribute trigger (writes to target input):</div>
+        <div class="flex-row" style="margin-top:6px">
+          <button class="btn btn-outline btn-sm"
+                  data-mbk-gallery-trigger
+                  data-mbk-target="#gallery-attr-result">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z"/></svg>
+            data-mbk-gallery-trigger
+          </button>
+          <input id="gallery-attr-result"
+                 class="demo-input"
+                 style="max-width:340px"
+                 type="text"
+                 readonly
+                 placeholder="key will appear here…">
+        </div>
+      </div>
+
+      <!-- JS code -->
+      <div class="code-pane" data-pane="gallery-js">
+        <pre class="code-block"><span class="cm">// 1. Single selection mode (default)</span>
+<span class="kw">const</span> file = <span class="kw">await</span> MBKBucket.<span class="fn">openGallery</span>({
+  prefix: <span class="str">'images/'</span>, <span class="cm">// start folder</span>
+});
+<span class="kw">if</span> (file) console.<span class="fn">log</span>(file.key, file.name, file.size, file.url);
+
+<span class="cm">// 2. Multi-selection mode with In-Modal Upload</span>
+<span class="kw">const</span> files = <span class="kw">await</span> MBKBucket.<span class="fn">openGallery</span>({
+  multiple: <span class="num">true</span>,
+  maxFiles: <span class="num">10</span>,
+});
+<span class="kw">if</span> (files) {
+  <span class="cm">// returns Array&lt;{ key, name, size, url }&gt;</span>
+  files.<span class="fn">forEach</span>(f =&gt; console.<span class="fn">log</span>(f.key));
+}</pre>
+      </div>
+
+      <!-- Data-attr code -->
+      <div class="code-pane" data-pane="gallery-attr">
+        <pre class="code-block"><span class="cm">&lt;!-- Single file picker trigger --&gt;</span>
+<span class="tag">&lt;button</span>
+  <span class="at">data-mbk-gallery-trigger</span>
+  <span class="at">data-mbk-target</span>=<span class="str">"#my-field"</span>
+  <span class="at">data-mbk-prefix</span>=<span class="str">"uploads/"</span>
+<span class="tag">&gt;</span>Browse Bucket<span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;input</span> <span class="at">id</span>=<span class="str">"my-field"</span> <span class="at">type</span>=<span class="str">"text"</span> <span class="at">readonly</span><span class="tag">&gt;</span>
+
+<span class="cm">&lt;!-- Multi-file picker trigger --&gt;</span>
+<span class="tag">&lt;button</span>
+  <span class="at">data-mbk-gallery-trigger</span>
+  <span class="at">data-mbk-target</span>=<span class="str">"#multi-field"</span>
+  <span class="at">data-mbk-multiple</span>=<span class="str">"true"</span>
+<span class="tag">&gt;</span>Browse Multiple<span class="tag">&lt;/button&gt;</span>
+<span class="tag">&lt;input</span> <span class="at">id</span>=<span class="str">"multi-field"</span> <span class="at">type</span>=<span class="str">"text"</span> <span class="at">readonly</span><span class="tag">&gt;</span></pre>
+      </div>
+    </div>
+
+    <!-- ── 2. File Picker with Live Preview Binding ─────────────── -->
+    <div class="demo-section" id="picker">
+      <div class="demo-section-header">
+        <div class="section-num">2</div>
+        <div class="section-title">File Picker &amp; Live Image Preview Binding</div>
+        <div class="section-chips">
+          <span class="chip">Live &lt;img&gt; Preview</span>
+          <span class="chip">data-mbk-preview</span>
+          <span class="chip">Multi-select Input</span>
+          <span class="chip">Form Ready</span>
+        </div>
+      </div>
+
+      <div class="demo-tabs">
+        <div class="demo-tab active" data-tab="demo" data-group="picker">Live Demo</div>
+        <div class="demo-tab" data-tab="js" data-group="picker">JS API</div>
+        <div class="demo-tab" data-tab="attr" data-group="picker">Data-attribute</div>
+      </div>
+
+      <div class="demo-pane active" data-pane="picker-demo">
+        <form id="picker-form" onsubmit="return demoPickerSubmit(event)">
+
+          <!-- Live Preview Avatar Demo -->
+          <div class="form-row">
+            <label class="form-label">
+              User Avatar with Live Image Preview
+              <code class="inline-code">data-mbk-preview="#avatar-live-img"</code>
+            </label>
+            <div class="avatar-preview-wrap">
+              <img id="avatar-live-img"
+                   class="avatar-preview-img"
+                   src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80"
+                   alt="Avatar Preview">
+              <div class="avatar-preview-text">
+                <span class="avatar-preview-title">Profile Avatar Preview</span>
+                <span class="avatar-preview-sub">Select an image from the bucket to instantly update this picture</span>
+              </div>
+            </div>
+            <input id="picker-field-1"
+                   name="avatar"
+                   data-mbk-picker
+                   data-mbk-preview="#avatar-live-img"
+                   data-mbk-prefix="images/"
+                   data-mbk-placeholder="Pick an avatar image…">
+          </div>
+
+          <!-- Multi-file picker input -->
+          <div class="form-row">
+            <label class="form-label" for="picker-field-2">
+              Gallery Photos field (Multi-Select)
+              <code class="inline-code">data-mbk-multiple="true"</code>
+            </label>
+            <input id="picker-field-2"
+                   name="gallery_photos"
+                   data-mbk-picker
+                   data-mbk-multiple="true"
+                   data-mbk-prefix="images/"
+                   data-mbk-placeholder="Pick multiple photos from bucket…">
+          </div>
+
+          <div class="form-submit-row">
+            <button type="submit" class="btn btn-primary btn-sm">Submit Form</button>
+            <span style="font-size:12px;color:var(--text-muted)">Logs FormData values below</span>
+          </div>
+        </form>
+
+        <div class="output-box" id="picker-output" style="display:none;margin-top:14px">
+          <span class="output-label">FormData Submitted</span>
+          <span id="picker-output-text" style="white-space:pre-wrap"></span>
+        </div>
+      </div>
+
+      <div class="code-pane" data-pane="picker-js">
+        <pre class="code-block"><span class="cm">// Wrap an input with Live Image Preview binding</span>
+<span class="kw">const</span> picker = MBKBucket.<span class="fn">createPicker</span>(<span class="str">'#avatar-input'</span>, {
+  preview:     <span class="str">'#avatar-live-img'</span>, <span class="cm">// Selector for &lt;img&gt; or background container</span>
+  prefix:      <span class="str">'avatars/'</span>,
+  multiple:    <span class="num">false</span>,
+  placeholder: <span class="str">'Choose an avatar…'</span>,
+  <span class="fn">onSelect</span>: result =&gt; {
+    console.<span class="fn">log</span>(<span class="str">'Selected:'</span>, result?.key, result?.url);
+  },
+});</pre>
+      </div>
+
+      <div class="code-pane" data-pane="picker-attr">
+        <pre class="code-block"><span class="cm">&lt;!-- Live preview automatically binds to #avatar-img --&gt;</span>
+<span class="tag">&lt;img</span> <span class="at">id</span>=<span class="str">"avatar-img"</span> <span class="at">src</span>=<span class="str">"/placeholder.png"</span> <span class="at">width</span>=<span class="str">"80"</span> <span class="at">height</span>=<span class="str">"80"</span><span class="tag">&gt;</span>
+
+<span class="tag">&lt;input</span>
+  <span class="at">name</span>=<span class="str">"avatar"</span>
+  <span class="at">data-mbk-picker</span>
+  <span class="at">data-mbk-preview</span>=<span class="str">"#avatar-img"</span>
+  <span class="at">data-mbk-prefix</span>=<span class="str">"avatars/"</span>
+  <span class="at">data-mbk-placeholder</span>=<span class="str">"Select an avatar…"</span>
+<span class="tag">&gt;</span></pre>
+      </div>
+    </div>
+
+    <!-- ── 3. Upload Widget ────────────────────────────────────── -->
+    <div class="demo-section" id="uploader">
+      <div class="demo-section-header">
+        <div class="section-num">3</div>
+        <div class="section-title">Upload Widget</div>
+        <div class="section-chips">
+          <span class="chip">Drag &amp; drop</span>
+          <span class="chip">Multi-file</span>
+          <span class="chip">Per-file progress</span>
+          <span class="chip">Auto multipart &gt;10 MB</span>
+          <span class="chip">8 MB chunks</span>
+        </div>
+      </div>
+
+      <div class="demo-tabs">
+        <div class="demo-tab active" data-tab="demo" data-group="uploader">Live Demo</div>
+        <div class="demo-tab" data-tab="js" data-group="uploader">JS API</div>
+        <div class="demo-tab" data-tab="attr" data-group="uploader">Data-attribute</div>
+      </div>
+
+      <div class="demo-pane active" data-pane="uploader-demo">
+        <div class="form-label" style="margin-bottom:10px">
+          Upload files to prefix <code class="inline-code">uploads/demo/</code>:
+        </div>
+        <div data-mbk-uploader
+             data-mbk-prefix="uploads/demo/"
+             data-mbk-multiple="true">
+        </div>
+      </div>
+
+      <div class="code-pane" data-pane="uploader-js">
+        <pre class="code-block"><span class="cm">// Mount in any container element</span>
+<span class="kw">const</span> uploader = MBKBucket.<span class="fn">createUploader</span>(<span class="str">'#my-container'</span>, {
+  prefix:   <span class="str">'uploads/'</span>,
+  bucket:   <span class="str">''</span>,
+  accept:   <span class="str">'image/*,.pdf'</span>,
+  multiple: <span class="num">true</span>,
+  <span class="fn">onSuccess</span>: ({ file, key }) =&gt; console.<span class="fn">log</span>(<span class="str">'Uploaded:'</span>, key),
+  <span class="fn">onError</span>:   ({ file, error }) =&gt; console.<span class="fn">error</span>(error.message),
+});
+
+<span class="cm">// Programmatic injection</span>
+uploader.<span class="fn">addFiles</span>(fileInput.files);
+uploader.<span class="fn">clear</span>();</pre>
+      </div>
+
+      <div class="code-pane" data-pane="uploader-attr">
+        <pre class="code-block"><span class="cm">&lt;!-- Auto-inits on DOMContentLoaded --&gt;</span>
+<span class="tag">&lt;div</span>
+  <span class="at">data-mbk-uploader</span>
+  <span class="at">data-mbk-prefix</span>=<span class="str">"uploads/"</span>
+  <span class="at">data-mbk-accept</span>=<span class="str">"image/*,application/pdf"</span>
+  <span class="at">data-mbk-multiple</span>=<span class="str">"true"</span>
+<span class="tag">&gt;&lt;/div&gt;</span></pre>
+      </div>
+    </div>
+
+    <!-- ── 4. URL Builders & API Helpers ───────────────────────── -->
+    <div class="demo-section" id="api">
+      <div class="demo-section-header">
+        <div class="section-num">4</div>
+        <div class="section-title">URL Builders &amp; API Helpers</div>
+        <div class="section-chips">
+          <span class="chip">MBKBucket.url.*</span>
+          <span class="chip">listFiles</span>
+          <span class="chip">uploadFile</span>
+          <span class="chip">getSignedUrl</span>
+        </div>
+      </div>
+
+      <div class="demo-tabs">
+        <div class="demo-tab active" data-tab="urls" data-group="api">URL Builders</div>
+        <div class="demo-tab" data-tab="list" data-group="api">List Files</div>
+        <div class="demo-tab" data-tab="signed" data-group="api">Signed URL</div>
+        <div class="demo-tab" data-tab="code" data-group="api">Code Reference</div>
+      </div>
+
+      <!-- URL Builders -->
+      <div class="demo-pane active" data-pane="api-urls">
+        <div class="form-row">
+          <label class="form-label" for="url-helper-key">Enter any file key:</label>
+          <input id="url-helper-key"
+                 class="demo-input"
+                 type="text"
+                 value="images/sample.jpg"
+                 placeholder="e.g. images/photo.jpg"
+                 oninput="updateUrlBuilderDemos()">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+          <div class="output-box" style="margin-top:0">
+            <span class="output-label">MBKBucket.url.view(key) — Inline View</span>
+            <span id="url-demo-view">/mbkbucket/view/images/sample.jpg</span>
+          </div>
+          <div class="output-box" style="margin-top:0">
+            <span class="output-label">MBKBucket.url.public(key) — Public View (p_view)</span>
+            <span id="url-demo-public">/mbkbucket/p_view/images/sample.jpg</span>
+          </div>
+          <div class="output-box" style="margin-top:0">
+            <span class="output-label">MBKBucket.url.download(key) — Force Download</span>
+            <span id="url-demo-download">/mbkbucket/download/images/sample.jpg</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- List Files -->
+      <div class="demo-pane" data-pane="api-list">
+        <div class="form-row">
+          <label class="form-label" for="api-prefix-input">Prefix to list:</label>
+          <div class="flex-row">
+            <input id="api-prefix-input"
+                   class="demo-input"
+                   type="text"
+                   style="max-width:280px"
+                   placeholder="e.g. images/  (leave empty for root)">
+            <button class="btn btn-primary btn-sm" onclick="demoListFiles()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+              Fetch
+            </button>
+          </div>
+          <div class="form-hint">Calls <code class="inline-code">MBKBucket.api.listFiles(prefix, { recursive: false })</code></div>
+        </div>
+
+        <div class="api-result" id="api-list-result" style="display:none">
+          <div class="api-result-header">
+            <div class="api-dot" id="api-list-dot"></div>
+            <span id="api-list-status">—</span>
+          </div>
+          <pre id="api-list-pre"></pre>
+        </div>
+      </div>
+
+      <!-- Signed URL -->
+      <div class="demo-pane" data-pane="api-signed">
+        <div class="form-row">
+          <label class="form-label" for="api-signed-key">File key:</label>
+          <div class="flex-row">
+            <input id="api-signed-key"
+                   class="demo-input"
+                   type="text"
+                   style="max-width:320px"
+                   placeholder="e.g. images/photo.jpg">
+            <button class="btn btn-primary btn-sm" onclick="demoSignedUrl()">Get URL</button>
+          </div>
+          <div class="form-hint">Calls <code class="inline-code">MBKBucket.api.getSignedUrl(key, { expiresIn: 3600 })</code></div>
+        </div>
+
+        <div class="api-result" id="api-signed-result" style="display:none">
+          <div class="api-result-header">
+            <div class="api-dot" id="api-signed-dot"></div>
+            <span id="api-signed-status">—</span>
+          </div>
+          <pre id="api-signed-pre"></pre>
+        </div>
+      </div>
+
+      <!-- Code reference -->
+      <div class="code-pane" data-pane="api-code">
+        <pre class="code-block"><span class="cm">// URL helpers</span>
+MBKBucket.url.<span class="fn">view</span>(<span class="str">'images/photo.jpg'</span>);     <span class="cm">// /mbkbucket/view/images/photo.jpg</span>
+MBKBucket.url.<span class="fn">public</span>(<span class="str">'images/photo.jpg'</span>);   <span class="cm">// /mbkbucket/p_view/images/photo.jpg</span>
+MBKBucket.url.<span class="fn">download</span>(<span class="str">'docs/file.pdf'</span>);    <span class="cm">// /mbkbucket/download/docs/file.pdf</span>
+
+<span class="cm">// List files</span>
+<span class="kw">const</span> { files, folders } = <span class="kw">await</span> MBKBucket.api.<span class="fn">listFiles</span>(<span class="str">'images/'</span>);
+
+<span class="cm">// Programmatic upload</span>
+<span class="kw">await</span> MBKBucket.api.<span class="fn">uploadFile</span>(<span class="str">'uploads/'</span>, file, {
+  <span class="fn">onProgress</span>: pct =&gt; console.<span class="fn">log</span>(Math.<span class="fn">round</span>(pct * <span class="num">100</span>) + <span class="str">'%'</span>),
+});</pre>
+      </div>
+    </div>
+
+    <!-- ── 5. Toast Notifications ──────────────────────────────── -->
+    <div class="demo-section" id="toast">
+      <div class="demo-section-header">
+        <div class="section-num">5</div>
+        <div class="section-title">Toast Notifications</div>
+        <div class="section-chips">
+          <span class="chip">4 types</span>
+          <span class="chip">Auto-dismiss</span>
+          <span class="chip">Custom duration</span>
+        </div>
+      </div>
+
+      <div class="demo-tabs">
+        <div class="demo-tab active" data-tab="demo" data-group="toast">Live Demo</div>
+        <div class="demo-tab" data-tab="code" data-group="toast">Code</div>
+      </div>
+
+      <div class="demo-pane active" data-pane="toast-demo">
+        <div class="form-label" style="margin-bottom:10px">Click to trigger each toast type:</div>
+        <div class="toast-grid">
+          <button class="toast-btn tb-success" onclick="MBKBucket.toast.success('File uploaded successfully!')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Success
+          </button>
+          <button class="toast-btn tb-error" onclick="MBKBucket.toast.error('Upload failed — access denied')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Error
+          </button>
+          <button class="toast-btn tb-warning" onclick="MBKBucket.toast.warning('File already exists in bucket')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Warning
+          </button>
+          <button class="toast-btn tb-info" onclick="MBKBucket.toast.info('Connecting to bucket…')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Info
+          </button>
+        </div>
+      </div>
+
+      <div class="code-pane" data-pane="toast-code">
+        <pre class="code-block">MBKBucket.toast.<span class="fn">success</span>(<span class="str">'File uploaded!'</span>);
+MBKBucket.toast.<span class="fn">error</span>(<span class="str">'Upload failed'</span>);
+MBKBucket.toast.<span class="fn">warning</span>(<span class="str">'File already exists'</span>);
+MBKBucket.toast.<span class="fn">info</span>(<span class="str">'Loading…'</span>);</pre>
+      </div>
+    </div>
+
+  </div><!-- /demo-sections -->
+</div><!-- /page-wrap -->
+
+<!-- Footer -->
+<footer class="demo-footer">
+  MBKBucket Helper v1.2.0 &nbsp;·&nbsp;
+  <a href="/mbkbucket">Admin Dashboard</a> &nbsp;·&nbsp;
+  <a href="https://github.com/MIbnEKhalid/mbkbucket" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<!-- ── Scripts ────────────────────────────────────────────────────── -->
+<script src="/mbkbucket/mbkbucket-helper.js"></script>
+<script>
+  // ── Tab switching ────────────────────────────────────────────
+  document.querySelectorAll('.demo-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const group  = tab.dataset.group;
+      const tabKey = tab.dataset.tab;
+      const card   = tab.closest('.demo-section');
+
+      card.querySelectorAll('.demo-tab').forEach(t => t.classList.toggle('active', t === tab));
+
+      card.querySelectorAll('.demo-pane, .code-pane').forEach(pane => {
+        const key = pane.dataset.pane;
+        const isDemo   = tabKey === 'demo'   && key === `${group}-demo`;
+        const isUrls   = tabKey === 'urls'   && key === `${group}-urls`;
+        const isList   = tabKey === 'list'   && key === `${group}-list`;
+        const isSigned = tabKey === 'signed' && key === `${group}-signed`;
+        const isCode   = tabKey === 'code'   && key === `${group}-code`;
+        const isJs     = tabKey === 'js'     && key === `${group}-js`;
+        const isAttr   = tabKey === 'attr'   && key === `${group}-attr`;
+        pane.classList.toggle('active', isDemo || isUrls || isList || isSigned || isCode || isJs || isAttr);
+      });
+    });
+  });
+
+  // ── Nav scroll highlighting ──────────────────────────────────
+  const sections = document.querySelectorAll('.demo-section[id]');
+  const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting)
+        navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${e.target.id}`));
+    });
+  }, { threshold: 0.4 });
+  sections.forEach(s => io.observe(s));
+
+  // ── 1. Single & Multi Gallery Demos ──────────────────────────
+  document.getElementById('demo-open-gallery').addEventListener('click', async () => {
+    const btn = document.getElementById('demo-open-gallery');
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+
+    const result = await MBKBucket.openGallery({ prefix: '', bucket: '', multiple: false });
+
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Browse Single File`;
+
+    const out = document.getElementById('gallery-output');
+    if (result) {
+      out.innerHTML = `<span class="output-label">Selected Single File</span>${JSON.stringify(result, null, 2)}`;
+      out.classList.add('has-value');
+    } else {
+      out.innerHTML = `<span class="output-label">Selected Result</span>— cancelled`;
+      out.classList.remove('has-value');
+    }
+  });
+
+  document.getElementById('demo-open-gallery-multi').addEventListener('click', async () => {
+    const btn = document.getElementById('demo-open-gallery-multi');
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+
+    const results = await MBKBucket.openGallery({ prefix: '', bucket: '', multiple: true });
+
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Browse Multiple Files (multiple: true)`;
+
+    const out = document.getElementById('gallery-output');
+    if (results && results.length) {
+      out.innerHTML = `<span class="output-label">Selected Multiple (${results.length} files)</span>${JSON.stringify(results, null, 2)}`;
+      out.classList.add('has-value');
+    } else {
+      out.innerHTML = `<span class="output-label">Selected Result</span>— cancelled`;
+      out.classList.remove('has-value');
+    }
+  });
+
+  // ── 2. Picker form demo ──────────────────────────────────────
+  function demoPickerSubmit(e) {
+    e.preventDefault();
+    const fd      = new FormData(e.target);
+    const entries = Object.fromEntries(fd.entries());
+    const out     = document.getElementById('picker-output');
+    const txt     = document.getElementById('picker-output-text');
+    out.style.display = '';
+    out.classList.add('has-value');
+    txt.textContent = JSON.stringify(entries, null, 2);
+    MBKBucket.toast.success('Form submitted! Check output below.');
+    return false;
+  }
+
+  // ── 4. URL Builder Demos ─────────────────────────────────────
+  function updateUrlBuilderDemos() {
+    const key = document.getElementById('url-helper-key').value.trim();
+    document.getElementById('url-demo-view').textContent = MBKBucket.url.view(key);
+    document.getElementById('url-demo-public').textContent = MBKBucket.url.public(key);
+    document.getElementById('url-demo-download').textContent = MBKBucket.url.download(key);
+  }
+
+  // ── 4. API: list files ───────────────────────────────────────
+  async function demoListFiles() {
+    const prefix = document.getElementById('api-prefix-input').value.trim();
+    const result = document.getElementById('api-list-result');
+    const dot    = document.getElementById('api-list-dot');
+    const status = document.getElementById('api-list-status');
+    const pre    = document.getElementById('api-list-pre');
+
+    result.style.display = '';
+    dot.className = 'api-dot';
+    status.textContent = 'Loading…';
+    pre.textContent = '';
+
+    try {
+      const data = await MBKBucket.api.listFiles(prefix, { recursive: false });
+      dot.className = 'api-dot ok';
+      const fc = (data.files   || []).length;
+      const fd = (data.folders || []).length;
+      status.textContent = `200 OK — ${fc} file${fc !== 1 ? 's' : ''}, ${fd} folder${fd !== 1 ? 's' : ''}`;
+      pre.textContent = JSON.stringify({
+        totalFiles: data.totalFiles,
+        hasMore:    data.hasMore,
+        folders:    (data.folders || []).slice(0, 5),
+        files:      (data.files   || []).slice(0, 5).map(f => ({
+          key:  f.Key,
+          size: f.Size,
+          lastModified: f.LastModified
+        }))
+      }, null, 2);
+    } catch (err) {
+      dot.className = 'api-dot err';
+      status.textContent = `Error: ${err.message}`;
+      pre.textContent = JSON.stringify({ error: err.message, status: err.status }, null, 2);
+    }
+  }
+
+  // ── 4. API: signed URL ───────────────────────────────────────
+  async function demoSignedUrl() {
+    const key = document.getElementById('api-signed-key').value.trim();
+    if (!key) { MBKBucket.toast.warning('Enter a file key first'); return; }
+
+    const result = document.getElementById('api-signed-result');
+    const dot    = document.getElementById('api-signed-dot');
+    const status = document.getElementById('api-signed-status');
+    const pre    = document.getElementById('api-signed-pre');
+
+    result.style.display = '';
+    dot.className = 'api-dot';
+    status.textContent = 'Loading…';
+    pre.textContent = '';
+
+    try {
+      const data = await MBKBucket.api.getSignedUrl(key, { expiresIn: 3600 });
+      dot.className = 'api-dot ok';
+      status.textContent = `200 OK — expires in ${data.expiresIn}s`;
+      pre.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+      dot.className = 'api-dot err';
+      status.textContent = `Error: ${err.message}`;
+      pre.textContent = JSON.stringify({ error: err.message }, null, 2);
+    }
+  }
+</script>
+</body>
+</html>

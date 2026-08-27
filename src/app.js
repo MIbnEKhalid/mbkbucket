@@ -44,6 +44,13 @@ export function createApp() {
   server.get('/mbkbucket/bucketadmin.css', serveAsset('bucketadmin.css'));
   server.get('/mbkbucket/bucketadmin.js', serveAsset('bucketadmin.js'));
 
+  // Frontend helper utilities (drop-in for any HTML page)
+  server.get('/mbkbucket/mbkbucket-helper.css', serveAsset('mbkbucket-helper.css'));
+  server.get('/mbkbucket/mbkbucket-helper.js', serveAsset('mbkbucket-helper.js'));
+
+  // Helper component demo page (no auth — purely static HTML)
+  server.get('/mbkbucket/helper-demo', serveAsset('mbkbucket-helper-demo.html'));
+
   // Handlebars configuration
   server.engine("handlebars", engine({
     extname: ".handlebars",
