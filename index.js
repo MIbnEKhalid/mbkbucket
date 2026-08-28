@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
-import { createApp } from "./src/app.js";
-import { checkVersion } from "./src/config/index.js";
-import { runHealthCheck } from "./src/services/s3.service.js";
-import { createLogger } from "./src/utils/logger.js";
+import { createApp } from "./lib/src/app.js";
+import { checkVersion } from "./lib/src/config/index.js";
+import { runHealthCheck } from "./lib/src/services/s3.service.js";
+import { createLogger } from "./lib/src/utils/logger.js";
 
 dotenv.config();
 
@@ -26,9 +26,9 @@ if (isDevMode) {
 }
 
 // Re-export the public API for consumers of this package (named exports only)
-export * from "./src/services/s3.service.js";
-export * from "./src/config/index.js";
-export { default as bucket } from "./src/routes/index.js";
+export * from "./lib/src/services/s3.service.js";
+export * from "./lib/src/config/index.js";
+export { default as bucket } from "./lib/src/routes/index.js";
 
 // Default export: the Express application instance
 export default server;

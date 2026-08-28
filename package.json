@@ -1,6 +1,6 @@
 {
   "name": "mbkbucket",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "Flexible S3/R2 bucket management — library, Express router, and CLI for mbktech.org applications. Provides upload, download, listing, multipart utilities, signed URLs, and a command-line interface with built-in configuration validation and health checks",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
@@ -9,7 +9,7 @@
   "type": "module",
   "types": "index.d.ts",
   "bin": {
-    "mbkbucket": "./cli.js"
+    "mbkbucket": "./lib/cli.js"
   },
   "scripts": {
     "dev": "cross-env NODE_ENV=dev nodemon index.js",
@@ -44,6 +44,16 @@
   "bugs": {
     "url": "https://github.com/MIbnEKhalid/mbkbucket/issues"
   },
+  "files": [
+    "lib",
+    ".env.example",
+    ".mbkbucket.config.example.json",
+    "cli.js",
+    "index.js",
+    "LICENSE",
+    "package.json",
+    "README.md"
+  ],
   "keywords": [
     "mbkbucket",
     "s3-bucket",
