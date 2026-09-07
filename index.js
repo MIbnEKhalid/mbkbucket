@@ -1,3 +1,10 @@
+/**
+ * MBKBucket
+ * Copyright (c) 2026 Muhammad Bin Khalid, MBKTech.org and contributors
+ * Licensed under the MIT License.
+ * Source: https://github.com/MIbnEKhalid/mbkbucket
+ */
+
 import dotenv from "dotenv";
 import { createApp } from "./lib/src/app.js";
 import { checkVersion } from "./lib/src/config/index.js";
