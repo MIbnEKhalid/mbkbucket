@@ -37,14 +37,7 @@ npm install mbkbucket
 ### As a Library
 
 ```js
-import {
-  uploadFile,
-  downloadFile,
-  listfiles,
-  deleteFile,
-  deleteFolder,
-  getFileMetadata,
-  generateSignedUrl,
+import { uploadFile, downloadFile, listfiles, deleteFile, deleteFolder, getFileMetadata, generateSignedUrl,
   bucket,          // Express router
   packageJson       // Package metadata
 } from 'mbkbucket';
@@ -82,7 +75,7 @@ mbkbucket.listen(3004, () => {
 ```
 
 The Express app includes:
-- **`/mbkbucket`** — Admin dashboard (SuperAdmin only)
+- **`/mbkbucket`** — Admin dashboard (superadmin only)
 - **`/mbkbucket/api/*`** — REST API for file operations
 - **`/mbkbucket/p_view/:key(*)`** — Public file view
 - **`/mbkbucket/info`** — Health & config info
@@ -225,23 +218,23 @@ All functions are exported from the package root. Full TypeScript declarations i
 
 | Route | Auth | Description |
 |---|---|---|
-| `GET /mbkbucket` | SuperAdmin | Admin dashboard |
+| `GET /mbkbucket` | superadmin | Admin dashboard |
 | `GET /mbkbucket/info` | Any | Health check & config info |
 | `GET /mbkbucket/p_view/:key(*)` | Public | Public file viewer |
-| `POST /mbkbucket/api/list` | SuperAdmin | List files (JSON) |
-| `POST /mbkbucket/api/upload` | SuperAdmin | Upload file(s) |
-| `POST /mbkbucket/api/delete` | SuperAdmin | Delete file(s) |
-| `POST /mbkbucket/api/delete-folder` | SuperAdmin | Delete folder |
-| `POST /mbkbucket/api/create-folder` | SuperAdmin | Create folder marker |
-| `POST /mbkbucket/api/rename` | SuperAdmin | Rename/move a file |
-| `GET /mbkbucket/api/download/:key(*)` | SuperAdmin | Download a file |
-| `GET /mbkbucket/api/metadata/:key(*)` | SuperAdmin | Get file metadata |
-| `POST /mbkbucket/api/multipart/init` | SuperAdmin | Init multipart upload |
-| `POST /mbkbucket/api/multipart/part` | SuperAdmin | Upload multipart chunk |
-| `POST /mbkbucket/api/multipart/complete` | SuperAdmin | Complete multipart |
-| `POST /mbkbucket/api/multipart/abort` | SuperAdmin | Abort multipart |
-| `GET /mbkbucket/api/multipart/list` | SuperAdmin | List incomplete uploads |
-| `POST /mbkbucket/api/multipart/cleanup` | SuperAdmin | Clean up stale uploads |
+| `POST /mbkbucket/api/list` | superadmin | List files (JSON) |
+| `POST /mbkbucket/api/upload` | superadmin | Upload file(s) |
+| `POST /mbkbucket/api/delete` | superadmin | Delete file(s) |
+| `POST /mbkbucket/api/delete-folder` | superadmin | Delete folder |
+| `POST /mbkbucket/api/create-folder` | superadmin | Create folder marker |
+| `POST /mbkbucket/api/rename` | superadmin | Rename/move a file |
+| `GET /mbkbucket/api/download/:key(*)` | superadmin | Download a file |
+| `GET /mbkbucket/api/metadata/:key(*)` | superadmin | Get file metadata |
+| `POST /mbkbucket/api/multipart/init` | superadmin | Init multipart upload |
+| `POST /mbkbucket/api/multipart/part` | superadmin | Upload multipart chunk |
+| `POST /mbkbucket/api/multipart/complete` | superadmin | Complete multipart |
+| `POST /mbkbucket/api/multipart/abort` | superadmin | Abort multipart |
+| `GET /mbkbucket/api/multipart/list` | superadmin | List incomplete uploads |
+| `POST /mbkbucket/api/multipart/cleanup` | superadmin | Clean up stale uploads |
 
 ### Views
 

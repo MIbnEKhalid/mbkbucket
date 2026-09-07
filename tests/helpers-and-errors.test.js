@@ -1,32 +1,8 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
-import {
-  escapeHtml,
-  getBaseName,
-  getFileExt,
-  getMimeType,
-  trimSlashes,
-  trimLeadingSlashes,
-  getFolderPath,
-  normalizeKeyParam,
-  buildKey,
-  formatBytes,
-  formatDate,
-  streamToBuffer,
-  destroyStream,
-  nowIso,
-  isSensitiveTextType,
-  buildCacheControl,
-  parseRangeHeader,
-  commonHandlebarsHelpers
-} from '../lib/src/utils/helpers.js';
-import {
-  classifyApiError,
-  classifyViewError,
-  sendApiError,
-  sendViewError
-} from '../lib/src/utils/errors.js';
+import { escapeHtml, getBaseName, getFileExt, getMimeType, trimSlashes, trimLeadingSlashes, getFolderPath, normalizeKeyParam, buildKey, formatBytes, formatDate, streamToBuffer, destroyStream, nowIso, isSensitiveTextType, buildCacheControl, parseRangeHeader, commonHandlebarsHelpers } from '../lib/src/utils/helpers.js';
+import { classifyApiError, classifyViewError, sendApiError, sendViewError } from '../lib/src/utils/errors.js';
 import { compareVersions } from '../lib/src/config/index.js';
 
 test('escapeHtml escapes dangerous HTML characters', () => {
