@@ -997,8 +997,34 @@ export function deviceFlowLogin(options: DeviceFlowLoginOptions): Promise<Device
 // Router & Server Exports
 // ===========================================================================
 
+/** Options for creating the mbkbucket Express router. */
+export interface BucketAuthorization {
+  /** Authorization for the dashboard, listings, downloads, and private views. */
+  view?: RequestHandler;
+  /** Authorization for uploads, multipart operations, and folder creation. */
+  upload?: RequestHandler;
+  /** Authorization for cleanup, abort, and delete operations. */
+  delete?: RequestHandler;
+}
+
+export interface BucketRouterOptions {
+  /**
+   * Host application's authorization middleware. A single middleware protects
+   * all private routes; an object can provide separate view, upload, and delete
+   * guards. Missing guards remain restricted to superadmin sessions.
+   */
+  authorization?: RequestHandler | BucketAuthorization;
+}
+
+/**
+ * Creates a bucket router using host-controlled authorization middleware.
+ * Public info and public-view routes are unaffected.
+ */
+export function createBucketRouter(options?: BucketRouterOptions): Router;
+
 /**
  * Express router mounting all mbkbucket API, View, and Info routes (`/mbkbucket/...`).
+ * Uses the default superadmin-only authorization.
  */
 export const bucket: Router;
 

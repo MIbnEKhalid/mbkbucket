@@ -27,5 +27,5 @@ if (process.env.NODE_ENV === "dev") {
 
 export * from "./lib/src/services/s3.service.js";
 export * from "./lib/src/config/index.js";
-export { default as bucket } from "./lib/src/routes/index.js";
+export { default as bucket, createBucketRouter } from "./lib/src/routes/index.js";
 export default server;

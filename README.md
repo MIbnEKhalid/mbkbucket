@@ -74,6 +74,33 @@ mbkbucket.listen(3004, () => {
 });
 ```
 
+### Host-controlled permissions
+
+The default `bucket` router remains superadmin-only. A host application can
+provide its own mbkauthe permission instead:
+
+```js
+import { createBucketRouter } from 'mbkbucket';
+import { sessPerm } from 'mbkauthe';
+import { Permissions } from './permissions.js';
+
+app.use(createBucketRouter({
+  authorization: {
+    view: sessPerm(Permissions.storage.view),
+    upload: sessPerm(Permissions.storage.upload),
+    delete: sessPerm(Permissions.storage.delete),
+  },
+}));
+```
+
+Define `Permissions.storage.view`, `Permissions.storage.upload`, and
+`Permissions.storage.delete` in the host application's permission manifest and
+sync that manifest with mbkauthe. The supplied middleware controls the
+dashboard, private views, and bucket APIs; public views and info endpoints keep
+their existing behavior. When no middleware is supplied, mbkbucket uses
+`sessRole('superadmin')` for every private operation. A single middleware may
+also be passed as `authorization` to protect all three operations uniformly.
+
 The Express app includes:
 - **`/mbkbucket`** — Admin dashboard (superadmin only)
 - **`/mbkbucket/api/*`** — REST API for file operations

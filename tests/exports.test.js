@@ -26,6 +26,7 @@ const index = await import('../index.js');
 test('index.js exports all expected public APIs', () => {
   assert.ok(index.default, 'Default export exists');
   assert.ok(index.bucket, 'bucket route export exists');
+  assert.ok(typeof index.createBucketRouter === 'function', 'configurable bucket router factory is exported');
   assert.ok(typeof index.uploadFile === 'function', 'uploadFile is exported');
   assert.ok(typeof index.downloadFile === 'function', 'downloadFile is exported');
   assert.ok(typeof index.deleteFile === 'function', 'deleteFile is exported');
