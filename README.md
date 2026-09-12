@@ -6,7 +6,7 @@
 [![Downloads](https://img.shields.io/npm/dm/mbkbucket.svg)](https://www.npmjs.com/package/mbkbucket)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Publish Status](https://github.com/MIbnEKhalid/mbkbucket/actions/workflows/publish.yml/badge.svg)](https://github.com/MIbnEKhalid/mbkbucket/actions/workflows/publish.yml)
+[![Check npm version](https://github.com/MIbnEKhalid/mbkbucket/actions/workflows/checkLatestVersion.yml/badge.svg)]
 
 ---
 
