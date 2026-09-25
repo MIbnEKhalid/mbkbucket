@@ -267,14 +267,14 @@ All functions are exported from the package root. Full TypeScript declarations i
 
 | Template | Description |
 |---|---|
-| `bucketportal.handlebars` | Admin dashboard shell |
-| `bucketadmincontent.handlebars` | File listing & management UI |
-| `bucketadmin_alerts.handlebars` | Alert/notification partial |
-| `bucketadmin_delete_modal.handlebars` | Delete confirmation modal |
-| `bucketadmin_preview_modal.handlebars` | File preview modal |
-| `bucketadmin_filelist_skeleton.handlebars` | Loading skeleton |
-| `bucket.handlebars` | Public file viewer |
-| `mbkbucket_info.handlebars` | Info/health page |
+| `bucketportal.hbs` | Admin dashboard shell |
+| `bucketadmincontent.hbs` | File listing & management UI |
+| `bucketadmin_alerts.hbs` | Alert/notification partial |
+| `bucketadmin_delete_modal.hbs` | Delete confirmation modal |
+| `bucketadmin_preview_modal.hbs` | File preview modal |
+| `bucketadmin_filelist_skeleton.hbs` | Loading skeleton |
+| `bucket.hbs` | Public file viewer |
+| `mbkbucket_info.hbs` | Info/health page |
 
 ---
 

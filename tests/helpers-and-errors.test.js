@@ -83,6 +83,7 @@ test('isSensitiveTextType detects text and script types', () => {
 
 test('buildCacheControl generates correct headers', () => {
   assert.equal(buildCacheControl('image/png', { publicCache: true, isStaticAsset: true }), 'public, max-age=3600, immutable');
+  assert.equal(buildCacheControl('image/png', { isStaticAsset: true }), 'private, max-age=86400, stale-while-revalidate=604800');
   assert.equal(buildCacheControl('video/mp4', { publicCache: true, supportsRanges: true }), 'public, max-age=86400, must-revalidate');
   assert.equal(buildCacheControl('image/png', { publicCache: true }), 'public, max-age=300, must-revalidate');
   assert.equal(buildCacheControl('text/plain'), 'private, no-store');

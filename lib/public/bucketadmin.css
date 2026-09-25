@@ -675,10 +675,23 @@
   position: relative;
 }
 
+.view-btn#view-thumbs {
+  border-left: 1px solid var(--border-color);
+}
+
 .fm-item-thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: opacity 0.25s ease-in-out;
+}
+
+.fm-item-thumb.fm-lazy-thumb {
+  opacity: 0;
+}
+
+.fm-item-thumb.fm-lazy-thumb.is-loaded {
+  opacity: 1;
 }
 
 .fm-item-icon .ext {
