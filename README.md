@@ -111,65 +111,41 @@ The Express app includes:
 
 ## CLI Usage 💻
 
-> **⚠️ Under active development.** The CLI is functional but some features may change.
+mbkbucket includes a CLI for running the dashboard and API as a standalone Node.js server application.
 
-mbkbucket ships with a command-line interface for managing buckets directly from the terminal.
-
-### Setup
+### Run Standalone Server
 
 ```bash
-# Set your mbkauthe server URL (one-time)
-mbkbucket config set serverUrl https://your-server.example.com
+# Run using npx
+npx mbkbucket
 
-# Set your API token profile key (one-time, optional)
-mbkbucket config set profileKey your-profile-key
-
-# Authenticate via device flow
-mbkbucket login
+# Or after installing globally / locally
+mbkbucket
 ```
 
-### Commands
+### CLI Options
 
-| Command | Alias | Description |
+| Option | Shorthand | Description |
 |---|---|---|
-| `mbkbucket login` | — | Authenticate via mbkauthe device flow |
-| `mbkbucket logout` | — | Clear stored credentials |
-| `mbkbucket whoami` | — | Show login status |
-| | | |
-| `mbkbucket list [prefix]` | `ls` | List files and folders |
-| `mbkbucket upload <file> [key]` | `up` | Upload a file or folder |
-| `mbkbucket download <key> [dest]` | `dl` | Download a file or folder |
-| `mbkbucket delete <key>` | `rm` | Delete a file |
-| `mbkbucket delete-folder <prefix>` | `rmdir` | Recursively delete a folder |
-| `mbkbucket info <key>` | `stat` | Show file metadata (size, type, etc.) |
-| `mbkbucket signed-url <key>` | `sign` | Generate a pre-signed download URL |
-| | | |
-| `mbkbucket config` | `cfg` | Show all config values |
-| `mbkbucket config get <key>` | — | Get a specific config value |
-| `mbkbucket config set <k> <v>` | — | Set a config value |
-| `mbkbucket config unset <key>` | — | Remove a config value |
-| `mbkbucket config path` | — | Show config file location |
-| `mbkbucket config reset` | — | Reset to demo values |
-| `mbkbucket config edit` | — | Open config file in editor |
+| `--port <number>` | `-p` | Port to listen on (default: `3004` or `$PORT`) |
+| `--host <host>` | `-H` | Host address to bind to (default: `0.0.0.0` or `$HOST`) |
+| `--app <name>` | `-a` | Override `APP_NAME` for bucket key prefix isolation |
+| `--bucket <name>` | `-b` | Override default bucket name |
+| `--env <path>` | `-e` | Load environment variables from a custom `.env` file |
+| `--dev` | `-d` | Run in development mode (`NODE_ENV=dev`) |
+| `--open` | `-o` | Automatically open dashboard in default browser |
+| `--version` | `-v` | Show version number |
+| `--help` | `-h` | Show help text |
 
-### Global Options
+### Examples
 
-| Flag | Description |
-|---|---|
-| `--app`, `-a <name>` | Override `APP_NAME` for key prefix isolation |
-| `--bucket`, `-b <name>` | Override default bucket name |
-| `--help`, `-h` | Show help |
+```bash
+# Start server on custom port and open browser
+mbkbucket -p 8080 --open
 
-### Login Options
-
-| Flag | Description |
-|---|---|
-| `--server <url>` | mbkauthe server URL |
-| `--profile-key <k>` | API token profile key |
-
-### Config File
-
-CLI configuration is stored at `~/.mbkbucket/config.json`. A demo config is created automatically on first use.
+# Start with a specific .env file and application prefix
+mbkbucket --env ./configs/.env.prod -a myapp
+```
 
 ---
 
