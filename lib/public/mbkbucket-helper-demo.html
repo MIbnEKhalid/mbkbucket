@@ -29,33 +29,13 @@
     body {
       font-family: var(--font);
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.5;
       color: var(--text);
-      background:
-        radial-gradient(circle at 12% 14%, rgba(16, 185, 129, 0.1), transparent 44%),
-        radial-gradient(circle at 88% 8%,  rgba(15, 118, 110, 0.08), transparent 40%),
-        linear-gradient(160deg, #eef7f2 0%, #f8fbf7 52%, #eaf2ef 100%);
+      background: var(--body-bg, #f8fafc);
       min-height: 100vh;
       overflow-x: hidden;
-    }
-
-    /* Ambient blobs */
-    body::before, body::after {
-      content: '';
-      position: fixed;
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 0;
-    }
-    body::before {
-      width: 280px; height: 280px;
-      top: 10vh; left: -80px;
-      background: radial-gradient(circle, rgba(15,118,110,0.14) 0, transparent 70%);
-    }
-    body::after {
-      width: 320px; height: 320px;
-      bottom: 8vh; right: -100px;
-      background: radial-gradient(circle, rgba(16,185,129,0.1) 0, transparent 70%);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     /* ── Top nav ───────────────────────────────────────────────── */

@@ -54,4 +54,15 @@ test('index.js exports all expected public APIs', () => {
   assert.ok(typeof index.validateBucketConnection === 'function', 'validateBucketConnection is exported');
   assert.ok(typeof index.validateAllConfiguration === 'function', 'validateAllConfiguration is exported');
   assert.ok(index.mbkbucketVar, 'mbkbucketVar is exported');
+
+  // New provider-independent storage exports
+  assert.ok(typeof index.StorageProvider === 'function', 'StorageProvider base class is exported');
+  assert.ok(typeof index.S3StorageProvider === 'function', 'S3StorageProvider is exported');
+  assert.ok(typeof index.GoogleDriveStorageProvider === 'function', 'GoogleDriveStorageProvider is exported');
+  assert.ok(typeof index.StorageManager === 'function', 'StorageManager class is exported');
+  assert.ok(index.storageManager, 'storageManager instance is exported');
+  assert.ok(typeof index.getGoogleAuthUrl === 'function', 'getGoogleAuthUrl is exported');
+  assert.ok(typeof index.exchangeCodeForTokens === 'function', 'exchangeCodeForTokens is exported');
+  assert.ok(typeof index.refreshGoogleAccessToken === 'function', 'refreshGoogleAccessToken is exported');
+  assert.ok(typeof index.getServiceAccountAccessToken === 'function', 'getServiceAccountAccessToken is exported');
 });

@@ -13,55 +13,49 @@
 /* ─── Standalone design tokens (fallbacks via @property-like approach) ──────── */
 :root {
   /* Colours */
-  --mbkh-primary:       var(--primary-color-ml,      #0f766e);
-  --mbkh-primary-lt:    var(--primary-light-color-ml, #d7f4ee);
-  --mbkh-primary-dk:    var(--primary-dark-color-ml,  #0b4f4a);
-  --mbkh-primary-hover: var(--primary-hover,          #0d635c);
+  --mbkh-primary:       var(--primary-color-ml,       #0f766e);
+  --mbkh-primary-lt:    var(--primary-light-color-ml,  #f0fdfa);
+  --mbkh-primary-dk:    var(--primary-dark-color-ml,   #115e59);
+  --mbkh-primary-hover: var(--primary-hover,           #134e4a);
 
-  --mbkh-danger:        var(--danger-color-ml,   #dc2626);
-  --mbkh-success:       var(--success-color-ml,  #16a34a);
-  --mbkh-warning:       var(--warning-color-ml,  #d97706);
+  --mbkh-danger:        var(--danger-color-ml,   #ef4444);
+  --mbkh-success:       var(--success-color-ml,  #10b981);
+  --mbkh-warning:       var(--warning-color-ml,  #f59e0b);
 
   /* Backgrounds */
-  --mbkh-body-bg:       var(--body-bg,                #f4f7f3);
-  --mbkh-surface:       var(--bg-surface,             rgba(255,255,255,0.85));
-  --mbkh-surface2:      var(--bg-surface-secondary,   rgba(244,247,243,0.85));
-  --mbkh-surface3:      var(--bg-surface-tertiary,    #e2ede8);
+  --mbkh-body-bg:       var(--body-bg,                #f8fafc);
+  --mbkh-surface:       var(--bg-surface,             #ffffff);
+  --mbkh-surface2:      var(--bg-surface-secondary,   #f8fafc);
+  --mbkh-surface3:      var(--bg-surface-tertiary,    #f1f5f9);
 
   /* Borders */
-  --mbkh-border:        var(--border-color,            rgba(15,118,110,0.16));
-  --mbkh-border-lt:     var(--border-color-light,      rgba(15,118,110,0.08));
-  --mbkh-border-active: rgba(15,118,110,0.45);
+  --mbkh-border:        var(--border-color,            #e2e8f0);
+  --mbkh-border-lt:     var(--border-color-light,      #f1f5f9);
+  --mbkh-border-active: rgba(15, 118, 110, 0.35);
 
   /* Text */
-  --mbkh-text:          var(--text,          #1f2a2a);
-  --mbkh-text-sec:      var(--text-secondary, #425855);
-  --mbkh-text-muted:    var(--text-muted,    #667c79);
-  --mbkh-text-dim:      var(--text-disabled, #a0b2af);
+  --mbkh-text:          var(--text,          #0f172a);
+  --mbkh-text-sec:      var(--text-secondary, #475569);
+  --mbkh-text-muted:    var(--text-muted,    #64748b);
+  --mbkh-text-dim:      var(--text-disabled, #94a3b8);
 
   /* Typography */
-  --mbkh-font:          var(--font,          "IBM Plex Sans", "Segoe UI", sans-serif);
-  --mbkh-font-heading:  var(--font-headings, "Sora",          "Segoe UI", sans-serif);
-  --mbkh-font-mono:     var(--font-mono,     "JetBrains Mono", Consolas,  monospace);
+  --mbkh-font:          var(--font,          "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif);
+  --mbkh-font-heading:  var(--font-headings, "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif);
+  --mbkh-font-mono:     var(--font-mono,     "Segoe UI Mono", "Cascadia Code", Consolas, "Courier New", monospace);
 
   /* Shape */
-  --mbkh-radius:        var(--radius-lg, 14px);
+  --mbkh-radius:        var(--radius-lg, 12px);
   --mbkh-radius-md:     var(--radius,     8px);
   --mbkh-radius-sm:     var(--radius-sm,  6px);
 
   /* Shadows */
-  --mbkh-shadow:        var(--shadow-lg,
-                          0 20px 40px rgba(15,118,110,0.12),
-                          0 4px 12px rgba(0,0,0,0.06));
-  --mbkh-shadow-sm:     var(--shadow-md,
-                          0 8px 20px rgba(15,118,110,0.08),
-                          0 2px 6px rgba(0,0,0,0.04));
-  --mbkh-shadow-dropdown: var(--shadow-dropdown,
-                          0 12px 30px rgba(15,42,42,0.14),
-                          0 4px 10px rgba(0,0,0,0.05));
+  --mbkh-shadow:        var(--shadow-dropdown, 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.04));
+  --mbkh-shadow-sm:     var(--shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04));
+  --mbkh-shadow-dropdown: var(--shadow-dropdown, 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.04));
 
   /* Transition */
-  --mbkh-transition:    0.15s ease-in-out;
+  --mbkh-transition:    0.12s ease;
 }
 
 /* ─── Reset inside helper components ───────────────────────────────────────── */
@@ -82,14 +76,14 @@
   position: fixed;
   inset: 0;
   z-index: 99990;
-  background: rgba(15, 42, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
-  animation: mbkh-fade-in 0.18s ease;
+  animation: mbkh-fade-in 0.15s ease;
 }
 
 @keyframes mbkh-fade-in { from { opacity: 0; } to { opacity: 1; } }

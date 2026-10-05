@@ -34,9 +34,120 @@ export interface BucketConfig {
   SECRET_ACCESS_KEY?: string;
   /** AWS or S3 Region (defaults to 'auto' for R2 / custom endpoints) */
   region?: string;
+  /** Provider type tag */
+  type?: "s3" | "r2" | "minio" | "gdrive" | "google-drive" | string;
   /** Additional bucket-specific properties */
   [key: string]: any;
 }
+
+/**
+ * Configuration options for a Google Drive storage connection.
+ */
+export interface GoogleDriveConfig {
+  /** Provider type discriminator */
+  type: "gdrive" | "google-drive" | "googledrive";
+  /** OAuth 2.0 Client ID */
+  client_id?: string;
+  /** OAuth 2.0 Client Secret */
+  client_secret?: string;
+  /** OAuth 2.0 Refresh Token */
+  refresh_token?: string;
+  /** Direct access token */
+  access_token?: string;
+  /** Service account client email */
+  client_email?: string;
+  /** Service account private key */
+  private_key?: string;
+  /** Target root folder ID in Google Drive (defaults to 'root') */
+  folder_id?: string;
+  /** Additional custom properties */
+  [key: string]: any;
+}
+
+/**
+ * Supported storage connection types.
+ */
+export type StorageConnectionConfig = BucketConfig | GoogleDriveConfig;
+
+/**
+ * Mapping of connection identifier names to their corresponding configurations.
+ */
+export type StorageConnectionMap = Record<string, StorageConnectionConfig>;
+
+/**
+ * Explicit provider capabilities.
+ */
+export interface StorageCapabilities {
+  multipart: boolean;
+  presignedUrls: boolean;
+  nativeFolders: boolean;
+  ranges: boolean;
+  copy: boolean;
+  move: boolean;
+  search: boolean;
+  directDownloadUrl: boolean;
+}
+
+/**
+ * Abstract base class for storage providers.
+ */
+export abstract class StorageProvider {
+  name: string;
+  config: Record<string, any>;
+  constructor(name: string, config?: Record<string, any>);
+  get type(): string;
+  get capabilities(): StorageCapabilities;
+  abstract listFiles(prefix?: string, options?: ListFilesOptions): Promise<FileListResult>;
+  abstract uploadFile(key: string, fileBuffer: Buffer | Uint8Array | Readable, contentType: string, options?: UploadOptions): Promise<UploadResult>;
+  abstract downloadFile(key: string, options?: DownloadOptions): Promise<DownloadResult>;
+  abstract deleteFile(key: string, options?: any): Promise<DeleteResult>;
+  abstract deleteFiles(keys: string[], options?: any): Promise<BatchDeleteResult>;
+  abstract deleteFolder(prefix: string, options?: any): Promise<DeleteFolderResult>;
+  abstract createFolder(key: string, options?: any): Promise<any>;
+  abstract getFileMetadata(key: string, options?: any): Promise<FileMetadata>;
+  abstract fileExists(key: string, options?: any): Promise<boolean>;
+  abstract getFileSize(key: string, options?: any): Promise<number | null>;
+  abstract generateSignedUrl(key: string, operation?: "getObject" | "putObject", expiresIn?: number, options?: any): Promise<SignedUrlResult>;
+  abstract copyFile(sourceKey: string, destKey: string, options?: any): Promise<any>;
+  abstract moveFile(sourceKey: string, destKey: string, options?: any): Promise<any>;
+  abstract checkHealth(): Promise<HealthCheckResult>;
+}
+
+/**
+ * S3-compatible storage provider implementation.
+ */
+export class S3StorageProvider extends StorageProvider {
+  client: S3Client;
+  bucket: string;
+  region: string;
+  constructor(name: string, config?: BucketConfig);
+}
+
+/**
+ * Google Drive storage provider implementation.
+ */
+export class GoogleDriveStorageProvider extends StorageProvider {
+  rootFolderId: string;
+  constructor(name: string, config?: GoogleDriveConfig);
+  getAccessToken(): Promise<string>;
+}
+
+/**
+ * Storage connection registry and manager.
+ */
+export class StorageManager {
+  registerProviderFactory(type: string, factory: (name: string, config: any) => StorageProvider): void;
+  reloadFromEnv(): void;
+  registerConnection(name: string, config: StorageConnectionConfig): void;
+  getAvailableConnectionNames(): string[];
+  getDefaultConnectionName(): string | null;
+  resolveConnectionName(name?: string): string;
+  getConnectionConfig(name?: string): StorageConnectionConfig;
+  getProvider(name?: string): StorageProvider;
+  checkHealth(name?: string): Promise<HealthCheckResult>;
+}
+
+export const storageManager: StorageManager;
 
 /**
  * Mapping of bucket identifier names to their corresponding BucketConfig.

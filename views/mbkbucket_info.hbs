@@ -8,226 +8,128 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description"
-        content="Log in to portal.mbktech.org to access your resources and manage projects securely.">
-    <meta name="keywords" content="MBK Tech, Web-Portal, Web, Portal, Admin-Panel, Admin, login">
-    <meta property="og:title" content="Version and Configuration Information | MBK Tech" />
-    <meta property="og:image" content="https://mbktech.org/assets/images/logo.png" />
-    <meta property="og:url" content="/mbkbucket/info">
-    <title>Version and Configuration Information | MBK Tech Portal</title>
-    <link rel="icon" type="image/svg+xml" href="/icon.svg">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    {{> sharedStyles}}
-    <style>
-        .info-box {
-            background: rgba(10, 20, 20, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: var(--border-radius);
-            padding: 2.5rem;
-            width: 100%;
-            max-width: 900px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(0, 184, 148, 0.2);
-            position: relative;
-            z-index: 2;
-            transition: var(--transition);
-        }
-
-        .info-box:hover {
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-            border-color: rgba(0, 184, 148, 0.3);
-        }
-
-        .info-title {
-            text-align: center;
-            margin-bottom: 2rem;
-            font-size: 2rem;
-            position: relative;
-            color: var(--light);
-        }
-
-        .info-title::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100px;
-            height: 4px;
-            background-color: var(--accent);
-            border-radius: 2px;
-        }
-
-        .info-section {
-            margin-bottom: 2rem;
-            padding: 1.5rem;
-            border: 1px solid rgba(0, 184, 148, 0.2);
-            border-radius: var(--border-radius);
-            background-color: rgba(0, 0, 0, 0.2);
-            transition: var(--transition);
-        }
-
-        .info-section:hover {
-            border-color: rgba(0, 184, 148, 0.4);
-            background-color: rgba(0, 0, 0, 0.3);
-        }
-
-        .info-section h2 {
-            color: var(--accent);
-            border-bottom: 2px solid rgba(0, 184, 148, 0.3);
-            padding-bottom: 10px;
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            font-size: 1.4rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .info-section h2 i {
-            font-size: 1.2rem;
-        }
-
-        .info-row {
-            display: flex;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid rgba(0, 184, 148, 0.1);
-            align-items: center;
-        }
-
-        .info-row:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-
-        .info-label {
-            font-weight: 600;
-            color: var(--text-light);
-            min-width: 240px;
-            font-size: 1rem;
-        }
-
-        .info-value {
-            flex: 1;
-            word-break: break-word;
-            color: var(--text);
-            font-size: 1rem;
-        }
-
-        .version-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-
-        .version-up-to-date {
-            background: rgba(67, 233, 123, 0.2);
-            color: var(--success);
-            border: 1px solid var(--success);
-        }
-
-        .version-outdated {
-            background: rgba(255, 118, 117, 0.2);
-            color: var(--danger);
-            border: 1px solid var(--danger);
-        }
-
-        .version-fetch-error {
-            background: rgba(255, 209, 102, 0.2);
-            color: var(--warning);
-            border: 1px solid var(--warning);
-        }
-
-        @media (max-width: 768px) {
-            .info-box {
-                padding: 2rem;
-                max-width: 100%;
-            }
-
-            .info-title {
-                font-size: 1.8rem;
-            }
-
-            .info-row {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
-            }
-
-            .info-label {
-                min-width: unset;
-            }
-
-            .info-section h2 {
-                font-size: 1.2rem;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .info-box {
-                padding: 1.5rem;
-            }
-
-            .info-section {
-                padding: 1rem;
-            }
-        }
-    </style>
-</head>
+{{> head pageTitle="System Information" ogUrl="/mbkbucket/info"}}
 
 <body>
-    <header>
-        <div class="header-container">
-            <a class="logo">
-                <img src="/icon.svg" alt="Logo" class="logo-image" />
-                <span class="logo-text">BK <span>Tech</span></span>
-                <span class="logo-comp">{{#if APP_NAME}}{{APP_NAME}}{{else}}mbkbucket{{/if}}
-            </a>
+    {{> header appName=APP_NAME customURL="/mbkbucket"}}
 
-            {{> profilemenu}}
-        </div>
-    </header>
     <section class="login-container">
-        <i class="fas fa-info-circle ai-element"></i>
-        <i class="fas fa-cogs ai-element"></i>
-        <i class="fas fa-server ai-element"></i>
-        <i class="fas fa-code-branch ai-element"></i>
+        {{> backgroundElements}}
 
-        <div class="info-box">
-            <h1 class="info-title">System Information</h1>
-
-            <div class="info-section">
-                <h2><i class="fas fa-code-branch"></i> Version Information</h2>
-                <div class="info-row">
-                    <div class="info-label">Current Version:</div>
-                    <div class="info-value" id="CurrentVersion">{{CurrentVersion}}</div>
+        <div class="auth-card info-box">
+            <div class="info-header">
+                <div class="auth-icon-badge" aria-hidden="true">
+                    <i class="fas fa-database"></i>
                 </div>
+                <div>
+                    <h1 class="login-title">Storage Diagnostic</h1>
+                    <p class="login-subtitle">Runtime storage parameters, active bucket configurations, and version status.</p>
+                </div>
+            </div>
 
-                <div class="info-row">
-                    <div class="info-label">Latest Version:</div>
-                    <div class="info-value">
-                        {{latestVersion}}
-                        {{#if (eq latestVersion CurrentVersion)}}
-                        <span class="version-status version-up-to-date">
-                            <i class="fas fa-check-circle"></i> Up to date
-                        </span>
+            <!-- Quick Metrics Grid -->
+            <div class="info-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-label">MBKBucket Core</span>
+                        <div class="stat-icon-wrap"><i class="fas fa-code-branch"></i></div>
+                    </div>
+                    <div class="stat-value">v<span id="CurrentVersion">{{CurrentVersion}}</span></div>
+                    <div class="stat-badge-row">
+                        {{#if latestVersion}}
+                            {{#if (eq latestVersion CurrentVersion)}}
+                            <span class="badge badge-success"><i class="fas fa-check-circle"></i> Up to date</span>
+                            {{else}}
+                            <span class="badge badge-warning"><i class="fas fa-arrow-up"></i> Update: v{{latestVersion}}</span>
+                            {{/if}}
+                        {{else}}
+                            <span class="badge badge-neutral">v{{CurrentVersion}}</span>
                         {{/if}}
                     </div>
                 </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-label">Host Application</span>
+                        <div class="stat-icon-wrap"><i class="fas fa-cubes"></i></div>
+                    </div>
+                    <div class="stat-value">{{#if APP_NAME}}{{APP_NAME}}{{else}}mbkbucket{{/if}}</div>
+                    <div class="stat-sub-text">Release <code>v{{#if APP_VERSION}}{{APP_VERSION}}{{else}}{{CurrentVersion}}{{/if}}</code></div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-label">Storage Engine</span>
+                        <div class="stat-icon-wrap"><i class="fas fa-server"></i></div>
+                    </div>
+                    <div class="stat-value">
+                        <span class="badge badge-success"><i class="fas fa-circle-dot"></i> {{#if providerType}}{{providerType}}{{else}}S3/R2{{/if}}</span>
+                    </div>
+                    <div class="stat-sub-text">{{#if defaultBucket}}Bucket: <code>{{defaultBucket}}</code>{{else}}Active Storage Engine{{/if}}</div>
+                </div>
+            </div>
+
+            <!-- Configuration Parameters -->
+            <div class="info-section">
+                <div class="info-section-header">
+                    <h2><i class="fas fa-sliders"></i> Configuration Manifest</h2>
+                    <span class="badge badge-neutral">Read-only</span>
+                </div>
+                
+                <div class="info-table-wrap">
+                    <table class="info-table">
+                        <tbody>
+                            <tr>
+                                <td class="prop-label"><i class="fas fa-tag"></i> APP_NAME</td>
+                                <td class="prop-val"><code>{{#if APP_NAME}}{{APP_NAME}}{{else}}mbkbucket{{/if}}</code></td>
+                            </tr>
+                            <tr>
+                                <td class="prop-label"><i class="fas fa-code-commit"></i> Current Version</td>
+                                <td class="prop-val"><code>{{CurrentVersion}}</code></td>
+                            </tr>
+                            <tr>
+                                <td class="prop-label"><i class="fas fa-database"></i> Default Bucket</td>
+                                <td class="prop-val"><code>{{#if defaultBucket}}{{defaultBucket}}{{else}}default{{/if}}</code></td>
+                            </tr>
+                            <tr>
+                                <td class="prop-label"><i class="fas fa-layer-group"></i> Configured Buckets</td>
+                                <td class="prop-val"><span class="badge badge-neutral">{{#if configuredBucketsCount}}{{configuredBucketsCount}}{{else}}1{{/if}} bucket(s)</span></td>
+                            </tr>
+                            <tr>
+                                <td class="prop-label"><i class="fas fa-eye"></i> Public View Enabled</td>
+                                <td class="prop-val">
+                                    {{#if (eq mbkbucketVar.publiView_enabled "true")}}
+                                    <span class="badge badge-success">true</span>
+                                    {{else}}
+                                    <span class="badge badge-neutral">{{#if mbkbucketVar.publiView_enabled}}{{mbkbucketVar.publiView_enabled}}{{else}}false{{/if}}</span>
+                                    {{/if}}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="prop-label"><i class="fas fa-file-invoice"></i> Inline View</td>
+                                <td class="prop-val">
+                                    {{#if (eq mbkbucketVar.p_view_inline "true")}}
+                                    <span class="badge badge-success">true</span>
+                                    {{else}}
+                                    <span class="badge badge-neutral">{{#if mbkbucketVar.p_view_inline}}{{mbkbucketVar.p_view_inline}}{{else}}false{{/if}}</span>
+                                    {{/if}}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <div class="info-action-grid">
+                <a class="btn-outline" href="/mbkbucket"><i class="fas fa-folder-open"></i> File Dashboard</a>
+                <a class="btn-outline" href="/mbkbucket/helper-demo"><i class="fas fa-vial"></i> Helper Demo</a>
+                <a class="btn-outline" href="/mbkbucket/i.json"><i class="fas fa-code"></i> JSON Diagnostics</a>
+                <a class="btn-outline" href="https://github.com/MIbnEKhalid/mbkbucket" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i> Repository</a>
             </div>
         </div>
     </section>
 
+    {{> versionInfo}}
 </body>
-
 </html>

@@ -68,6 +68,32 @@ test('parseAndValidateBucketConnection accepts multi-bucket config', () => {
   assert.deepEqual(Object.keys(cfg), ['R2_Bucket', 'S3_Bucket']);
 });
 
+test('parseAndValidateBucketConnection accepts Google Drive configuration', () => {
+  const raw = JSON.stringify({
+    GDrive_Main: {
+      type: 'gdrive',
+      client_id: 'google-client-id.apps.googleusercontent.com',
+      client_secret: 'google-secret',
+      refresh_token: '1//refresh-token',
+      folder_id: 'root'
+    }
+  });
+
+  const cfg = parseAndValidateBucketConnection(raw);
+  assert.ok(cfg.GDrive_Main);
+  assert.equal(cfg.GDrive_Main.type, 'gdrive');
+});
+
+test('parseAndValidateBucketConnection rejects Google Drive missing credentials', () => {
+  const raw = JSON.stringify({
+    GDrive_Bad: {
+      type: 'gdrive'
+    }
+  });
+
+  assert.throws(() => parseAndValidateBucketConnection(raw), /requires OAuth credentials/);
+});
+
 test('parseAndValidateBucketConnection returns null when unset', () => {
   assert.equal(parseAndValidateBucketConnection(undefined), null);
   assert.equal(parseAndValidateBucketConnection(''), null);
@@ -82,7 +108,7 @@ test('parseAndValidateBucketConnection rejects empty object and array', () => {
   assert.throws(() => parseAndValidateBucketConnection('[]'), /non-empty object/);
 });
 
-test('parseAndValidateBucketConnection rejects missing required fields', () => {
+test('parseAndValidateBucketConnection rejects missing required fields for S3', () => {
   const raw = JSON.stringify({
     bad: {
       BUCKET_NAME: 'x',
@@ -102,7 +128,7 @@ test('parseAndValidateBucketConnection rejects quoted inner object shape', () =>
   assert.throws(() => parseAndValidateBucketConnection(raw), /must be an object/);
 });
 
-test('parseAndValidateBucketConnection rejects empty required fields', () => {
+test('parseAndValidateBucketConnection rejects empty required fields for S3', () => {
   const raw = JSON.stringify({
     bad: {
       BUCKET_NAME: '',

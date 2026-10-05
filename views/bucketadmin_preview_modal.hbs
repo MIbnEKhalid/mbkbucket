@@ -1,35 +1,103 @@
-<!-- Preview Modal -->
+<!-- Enhanced Preview Modal -->
 <div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="previewModalLabel" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered preview-modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="previewModalLabel">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="modal-title-icon"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2.5"/></svg>
-          <span id="previewFileName">Preview</span>
-        </h5>
+    <div class="modal-content preview-modal-content">
+      <div class="modal-header preview-modal-header">
+        <div class="preview-header-left">
+          <h5 class="modal-title" id="previewModalLabel">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="modal-title-icon"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2.5"/></svg>
+            <span id="previewFileName">Preview</span>
+          </h5>
+          <div class="preview-tabs ms-3" role="tablist">
+            <button type="button" class="preview-tab active" id="tab-preview-btn" data-preview-tab="preview">Preview</button>
+            <button type="button" class="preview-tab" id="tab-info-btn" data-preview-tab="info">File Info</button>
+          </div>
+        </div>
         <div class="preview-header-controls">
+          <div id="previewExtraControls" class="d-inline-flex align-items-center gap-1"></div>
           <button id="previewFullscreenBtn" class="btn btn-icon btn-outline btn-sm" type="button" aria-label="Toggle fullscreen" title="Fullscreen">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5V2h3M14 5V2h-3M2 11v3h3M14 11v3h-3"/></svg>
           </button>
           <button type="button" class="btn-close" aria-label="Close preview" id="previewCloseBtn" onclick="closePreviewModal()">&times;</button>
         </div>
       </div>
-      <div class="modal-body p-0">
-        <div class="preview-content" id="previewContent" aria-live="polite">
-          <div class="empty-preview">
-            <div class="spinner-border" role="status"></div>
-            <div class="modal-header-spacing mt-2">Loading preview...</div>
+      <div class="modal-body p-0 preview-modal-body">
+        <!-- Preview Tab View -->
+        <div class="preview-tab-pane active" id="pane-preview">
+          <div class="preview-content" id="previewContent" aria-live="polite">
+            <div class="empty-preview">
+              <div class="spinner-border" role="status"></div>
+              <div class="modal-header-spacing mt-2">Loading preview...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info & Metadata Tab View -->
+        <div class="preview-tab-pane" id="pane-info" style="display: none;">
+          <div class="p-4 file-info-pane">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="info-card">
+                  <div class="info-label">File Key</div>
+                  <div class="info-value font-mono text-break" id="infoFileKey">—</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="info-card">
+                  <div class="info-label">Size</div>
+                  <div class="info-value font-semibold" id="infoFileSize">—</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="info-card">
+                  <div class="info-label">MIME Type</div>
+                  <div class="info-value" id="infoMimeType">—</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="info-card">
+                  <div class="info-label">Last Modified</div>
+                  <div class="info-value" id="infoLastModified">—</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="info-card">
+                  <div class="info-label">ETag / Checksum</div>
+                  <div class="info-value font-mono text-break" id="infoETag">—</div>
+                </div>
+              </div>
+              <div class="col-md-12" id="infoPublicLinkCard" style="{{#unless publicViewEnabled}}display: none;{{/unless}}">
+                <div class="info-card">
+                  <div class="info-label">Public View URL</div>
+                  <div class="info-value font-mono text-break d-flex align-items-center justify-content-between gap-2">
+                    <span id="infoPublicUrl" class="text-truncate" style="user-select: all;">—</span>
+                    <button type="button" class="btn btn-outline btn-sm flex-shrink-0" onclick="copyCurrentPreviewPublicLink()" title="Copy Public URL">
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2h8a1 1 0 011 1v8M3 5h8a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       <div class="modal-footer preview-footer">
         <div class="preview-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="previewCopyLinkBtn" onclick="copyCurrentPreviewLink()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2h8a1 1 0 011 1v8M3 5h8a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>
+            Copy Link
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="previewCopyPublicLinkBtn" onclick="copyCurrentPreviewPublicLink()" title="Copy publicly accessible link" style="{{#unless publicViewEnabled}}display: none;{{/unless}}">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.25"/><path d="M1.75 8h12.5M8 1.75a10.5 10.5 0 010 12.5 10.5 10.5 0 010-12.5z"/></svg>
+            Copy Public Link
+          </button>
           <a id="previewOpenBtn" class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer" href="#">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4v4M9 7l5-5"/></svg>
             Open in new tab
           </a>
           <a id="previewDownloadBtn" class="btn btn-primary btn-sm" download href="#">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 11v3H2v-3"/><path d="M11 6L8 3 5 6"/><line x1="8" y1="3" x2="8" y2="11"/></svg>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 11v3H2v-3"/><path d="M5 8l3 3 3-3"/><line x1="8" y1="2" x2="8" y2="11"/></svg>
             Download
           </a>
           <button type="button" class="btn btn-outline btn-sm" id="previewCloseFooter" onclick="closePreviewModal()">Close</button>

@@ -1,6 +1,5 @@
-{{!-- Gentelella v4 File Management System - Bucket Dashboard --}}
 <link rel="stylesheet" href="/mbkbucket/bucketadmin.css{{mbkbucket_cachebuster}}">
-<div id="bucketAppData" data-app-name="{{APP_NAME}}" hidden></div>
+<div id="bucketAppData" data-app-name="{{APP_NAME}}" data-provider-type="{{providerType}}" data-public-view-enabled="{{publicViewEnabled}}" hidden></div>
 
 <div class="page-wrapper">
   <!-- Page Header -->
@@ -8,9 +7,23 @@
     <div class="page-header-row">
       <div>
         <div class="page-pretitle">Storage &amp; Buckets</div>
-        <h1 class="page-title">Files</h1>
+        <h1 class="page-title d-flex align-items-center gap-2">
+          <span>Files</span>
+          <span class="provider-badge provider-{{providerType}}" id="topProviderBadge">
+            <span class="provider-icon"></span>
+            <span class="provider-label">{{providerType}}</span>
+          </span>
+          <span class="health-status-badge healthy" id="topHealthBadge" title="Storage Connection Health">
+            <span class="health-dot"></span>
+            <span class="health-label" id="topHealthText">Connected</span>
+          </span>
+        </h1>
       </div>
       <div class="page-actions">
+        <button type="button" class="btn btn-outline btn-refresh" id="refresh-btn" title="Refresh files" aria-label="Refresh files">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 4v4h4M15 12v-4h-4M13.5 6A6 6 0 003 4.5L1 8M2.5 10a6 6 0 0010.5 1.5L15 8"/></svg>
+          <span class="d-none d-sm-inline">Refresh</span>
+        </button>
         <button type="button" class="btn btn-outline" id="new-folder-btn" data-action="create-folder">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 011-1h3l2 2h5a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/><path d="M8 7v4M6 9h4"/></svg>
           New folder
@@ -36,14 +49,19 @@
         <div id="fm-tree" class="fm-tree"></div>
 
         <div class="fm-storage">
-          <div class="fm-storage-label">Connected Bucket</div>
+          <div class="fm-storage-label d-flex justify-content-between align-items-center">
+            <span>Storage Connection</span>
+            <button type="button" class="health-check-btn" id="checkHealthBtn" title="Check Connection Health" aria-label="Check Connection Health">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 4v4h4M15 12v-4h-4M13.5 6A6 6 0 003 4.5L1 8M2.5 10a6 6 0 0010.5 1.5L15 8"/></svg>
+            </button>
+          </div>
           <div class="bucket-switcher-wrap mb-2">
             <div class="bucket-switcher-control">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="bucket-switcher-icon"><path d="M2 4.5C2 3.12 5.13 2 9 2s7 1.12 7 2.5v7c0 1.38-3.13 2.5-7 2.5s-7-1.12-7-2.5v-7z"/><path d="M2 8c0 1.38 3.13 2.5 7 2.5s7-1.12 7-2.5"/></svg>
               <select id="bucketSelector" class="bucket-switcher-select" aria-label="Select connected bucket">
                 {{#if bucketOptions.length}}
                   {{#each bucketOptions}}
-                    <option value="{{name}}" {{#if isSelected}}selected{{/if}}>{{name}}{{#if isDefault}} (default){{/if}}</option>
+                    <option value="{{name}}" data-type="{{type}}" {{#if isSelected}}selected{{/if}}>{{name}} [{{type}}]{{#if isDefault}} (default){{/if}}</option>
                   {{/each}}
                 {{else}}
                   <option value="">No buckets configured</option>
@@ -55,6 +73,7 @@
           <div class="storage-bar"><div id="storageUsageBar" style="width: 100%; background: var(--primary);"></div></div>
           <div class="fm-storage-meta d-flex justify-content-between align-items-center">
             <span id="totalFilesCount">Loading...</span>
+            <span id="storageLatency" class="storage-latency-tag"></span>
           </div>
           <div id="filterInfo" class="fm-storage-subinfo"></div>
         </div>
@@ -104,9 +123,11 @@
 
           <!-- Empty state -->
           <div id="fm-empty" class="fm-empty" style="display: none;" hidden>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h4l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            <div class="empty-icon-wrap">
+              <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h4l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            </div>
             <div class="empty-title">This folder is empty</div>
-            <div class="empty-desc">Drag files into the browser or use the Upload button to add files.</div>
+            <div class="empty-desc">Drag files directly into the browser or click Upload to get started.</div>
             <div class="empty-actions mt-3">
               <button type="button" class="btn btn-outline btn-sm me-2" data-action="create-folder">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 011-1h3l2 2h5a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/><path d="M8 7v4M6 9h4"/></svg>
@@ -131,8 +152,36 @@
   </div>
 </div>
 
+<!-- Floating Batch Action Bar -->
+<div id="batchActionBar" class="batch-action-bar" style="display: none;">
+  <div class="batch-bar-inner">
+    <div class="batch-selection-info">
+      <span class="batch-count-badge" id="batchSelectedCount">0</span>
+      <span class="batch-count-text">item(s) selected</span>
+    </div>
+    <div class="batch-actions">
+      <button type="button" class="btn btn-sm btn-outline-light" id="batchDownloadBtn">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 11v3H2v-3"/><path d="M5 8l3 3 3-3"/><line x1="8" y1="2" x2="8" y2="11"/></svg>
+        Download
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light" id="batchMoveBtn">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2L14 5L11 8M14 5H5C3.34315 5 2 6.34315 2 8V14"/></svg>
+        Move
+      </button>
+      <button type="button" class="btn btn-sm btn-danger" id="batchDeleteBtn">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 9h4l1-9"/></svg>
+        Delete
+      </button>
+      <button type="button" class="btn btn-sm btn-link text-white text-decoration-none" id="batchClearBtn">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 {{> bucketadmin_upload_modal }}
 {{> bucketadmin_newfolder_modal }}
+{{> bucketadmin_move_modal }}
 {{> bucketadmin_delete_modal }}
 {{> bucketadmin_preview_modal }}
 

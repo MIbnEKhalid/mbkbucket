@@ -8,7 +8,7 @@
 import dotenv from "dotenv";
 import { createApp } from "./lib/src/app.js";
 import { checkVersion } from "./lib/src/config/index.js";
-import { runHealthCheck } from "./lib/src/services/s3.service.js";
+import { runHealthCheck } from "./lib/src/services/storage.service.js";
 import { createLogger } from "#logger";
 
 dotenv.config();
@@ -25,6 +25,8 @@ if (process.env.NODE_ENV === "dev") {
   });
 }
 
+export * from "./lib/src/core/storage/index.js";
+export * from "./lib/src/services/storage.service.js";
 export * from "./lib/src/services/s3.service.js";
 export * from "./lib/src/config/index.js";
 export { default as bucket, createBucketRouter } from "./lib/src/routes/index.js";
