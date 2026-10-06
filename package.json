@@ -1,6 +1,6 @@
 {
   "name": "mbkbucket",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Flexible S3/R2 bucket management — library, Express router, and standalone server CLI for mbktech.org applications. Provides upload, download, listing, multipart utilities, signed URLs, and a standalone server runner with built-in configuration validation and health checks",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
@@ -13,7 +13,7 @@
   },
   "scripts": {
     "start": "node lib/cli.js",
-    "dev": "cross-env NODE_ENV=dev nodemon index.js",
+    "dev": "cross-env NODE_ENV=dev node --watch index.js",
     "publish": "node scripts/publish.js",
     "test": "vitest run"
   },
@@ -36,7 +36,6 @@
   "devDependencies": {
     "@types/supertest": "^7.2.1",
     "cross-env": "^7.0.3",
-    "nodemon": "^3.1.14",
     "supertest": "^7.3.1",
     "vite": "^8.3.2",
     "vitest": "5.0.3"
