@@ -18,7 +18,6 @@ class ViewMockProvider extends StorageProvider {
   get capabilities() {
     return {
       multipart: false,
-      presignedUrls: true,
       nativeFolders: false,
       ranges: true,
       copy: false,
@@ -84,10 +83,6 @@ class ViewMockProvider extends StorageProvider {
       queriedAt: new Date().toISOString()
     };
   }
-
-  async generateSignedUrl(key) {
-    return { url: `https://signed.example.com/${key}`, key, operation: 'getObject', expiresIn: 3600 };
-  }
 }
 
 let app;
@@ -135,6 +130,20 @@ test('View GET /mbkbucket/view/:key serves range requests for video streaming wi
 
   assert.ok(res.headers['content-range'].startsWith('bytes 0-10/'));
   assert.equal(res.headers['content-length'], '11');
+});
+
+test('View GET /mbkbucket/view/:key serves open-ended range request (bytes=0-) for PDF preview with 206 and full stream', async () => {
+  const res = await request(app)
+    .get('/mbkbucket/view/document.pdf?bucket=view-bucket')
+    .set('Range', 'bytes=0-')
+    .expect(206);
+
+  assert.ok(res.headers['content-range'].includes('/'));
+  assert.ok(res.headers['content-disposition'].includes('inline'));
+  assert.ok(res.headers['x-frame-options'].includes('SAMEORIGIN'));
+  assert.equal(res.headers['content-type'], 'application/pdf');
+  const bodyContent = res.text || res.body?.toString?.('utf-8') || '';
+  assert.ok(bodyContent.includes('%PDF-1.4 Mock PDF content'));
 });
 
 test('View GET /mbkbucket/view/:key rejects non-viewable file types with 415', async () => {

@@ -1,6 +1,6 @@
 # mbkbucket
 
-> Flexible S3, Cloudflare R2, and Google Drive cloud storage management — library, Express router, dashboard, and standalone server CLI for mbktech.org applications.
+> Flexible S3, Cloudflare R2, Google Drive, and Local Disk storage management — library, Express router, dashboard, and standalone server CLI for mbktech.org applications.
 
 [![Version](https://img.shields.io/npm/v/mbkbucket.svg)](https://www.npmjs.com/package/mbkbucket)
 [![Downloads](https://img.shields.io/npm/dm/mbkbucket.svg)](https://www.npmjs.com/package/mbkbucket)
@@ -12,7 +12,7 @@
 
 ## Table of Contents
 
-- [What's New in v4.0.0](#whats-new-in-v400-)
+- [What's New in v4.1.0](#whats-new-in-v410-)
 - [Installation](#installation-)
 - [Quick Start](#quick-start-)
 - [Supported Storage Providers](#supported-storage-providers-)
@@ -20,9 +20,10 @@
 - [Library API](#library-api-)
   - [File Operations](#file-operations)
   - [Folder, Copy & Move Operations](#folder-copy--move-operations)
-  - [Multipart Upload](#multipart-upload)
+  - [Multipart Upload & Cleanup Scheduler](#multipart-upload--cleanup-scheduler)
   - [Storage & Connection Management](#storage--connection-management)
   - [Storage Core & Custom Drivers](#storage-core--custom-drivers)
+  - [Metrics & Observability](#metrics--observability)
   - [Google Drive Authentication Helpers](#google-drive-authentication-helpers)
   - [Key Prefixing & App Isolation](#key-prefixing--app-isolation)
   - [Config & Diagnostics](#config--diagnostics)
@@ -42,16 +43,14 @@
 
 ---
 
-## What's New in v4.0.0 🌟
+## What's New in v4.1.0 🌟
 
-- **Provider-Independent Storage Architecture**: Unified `StorageProvider` base class and dynamic `StorageManager` registry. Seamlessly switch between or combine multiple storage backends.
-- **Native Google Drive Support**: First-class Google Drive provider supporting both OAuth 2.0 (user authorization code / refresh token flow) and Google Cloud Service Account credentials with folder-level targeting (`folder_id`).
-- **File Move & Copy Operations**: Built-in `moveFile` and `copyFile` operations across both library functions, REST APIs, and UI modals.
-- **Native Folder Creation**: Create directory markers and structure via `createFolder` with automatic folder marker resolution.
-- **Redesigned Admin Dashboard**: Clean modern UI with connection health badges, provider tags, storage connection switcher dropdown, dedicated Move/Rename modal, and enhanced media previews (video range streaming, PDF, audio, and code view).
-- **Frontend Drop-in Client Library (`mbkbucket-helper.js`)**: Bundled client helper with a modal gallery browser, input file picker, drag-and-drop chunked uploader, URL builders, and toast notifications. Demo page included at `/mbkbucket/helper-demo`.
-- **Custom Storage Drivers**: Register custom storage engines via `storageManager.registerDriver('custom', factory)`.
-- **Full Backward Compatibility**: All legacy S3 helper methods remain available and map cleanly to the underlying storage provider.
+- **Cross-Platform Local Disk Provider (`LocalStorageProvider`)**: First-class local filesystem storage provider with full Windows, Linux, and macOS compatibility, path sanitization against directory traversal, quota enforcement (`maxBytes`), recursive directory scanning, and byte-range streaming.
+- **Metrics & Observability Registry (`MetricsRegistry`)**: Built-in Prometheus-compatible metrics registry (`metricsRegistry`) and endpoints (`/mbkbucket/api/metrics` and `/mbkbucket/metrics`) tracking operation counts, duration summaries, transferred byte throughput, error counts, and active multipart sessions.
+- **Event-Driven Lifecycle & Storage Orchestration**: `StorageManager` now extends `EventEmitter`, broadcasting real-time lifecycle events (`file:uploaded`, `file:deleted`, `files:deleted`, `folder:created`, `folder:deleted`, `connection:registered`, `driver:registered`) with full lifecycle methods (`initialize()`, `dispose()`, `ping()`).
+- **Automated Incomplete Multipart Cleanup Scheduler (`CleanupScheduler`)**: Background cron-like scheduler (`cleanupScheduler`) to automatically identify and abort abandoned multipart upload chunks older than a configurable threshold.
+- **RFC 7233 Open-Ended Byte-Range Streaming**: High-performance range streaming for PDF documents (Chrome PDF viewer, Firefox PDF.js), HTML5 video, and audio players (`206 Partial Content`) with proper inline content disposition.
+- **Native Google Drive & S3/R2 Enhancements**: Unified error handling, exponential backoff retries on rate limits (429/503), and automatic driver inference for local paths.
 
 ---
 
@@ -68,14 +67,14 @@ npm install mbkbucket
 ### As a Library
 
 ```js
-import { uploadFile, downloadFile, listfiles, copyFile, moveFile, createFolder, deleteFile, generateSignedUrl, storageManager } from 'mbkbucket';
+import { uploadFile, downloadFile, listfiles, copyFile, moveFile, createFolder, deleteFile, storageManager, metricsRegistry } from 'mbkbucket';
 
 // Upload a file to default storage (or specify connectionName / bucketName)
 const upload = await uploadFile(
   'documents/invoice.pdf',
   fileBuffer,
   'application/pdf',
-  { connectionName: 'R2_Bucket' }
+  { connectionName: 'Local_Disk' } // or 'R2_Bucket', 'Google_Drive'
 );
 
 // List files and directories
@@ -91,15 +90,19 @@ await moveFile('documents/invoice.pdf', 'archive/invoice-2026.pdf');
 // Create a folder marker
 await createFolder('projects/2026');
 
-// Download a file stream
-const { Body, ContentType, ContentLength } = await downloadFile('archive/invoice-2026.pdf');
+// Download a file stream (with optional byte ranges for streaming)
+const { Body, ContentType, ContentLength } = await downloadFile('archive/invoice-2026.pdf', {
+  range: 'bytes=0-1048575'
+});
 
-// Generate pre-signed URL (for S3-compatible providers)
-const { url } = await generateSignedUrl('archive/invoice-2026.pdf', 'getObject', 3600);
+// Listen to storage lifecycle events
+storageManager.on('file:uploaded', ({ key, provider, size }) => {
+  console.log(`[Event] File uploaded: ${key} (${size} bytes) to ${provider}`);
+});
 
 // Check health across active connections
-const health = await storageManager.checkHealth('Google_Drive');
-console.log('Google Drive status:', health.status);
+const health = await storageManager.checkHealth('Local_Disk');
+console.log('Storage status:', health.status);
 ```
 
 ### As Express Middleware
@@ -141,14 +144,15 @@ mbkbucket.listen(3004, () => {
 
 ## Supported Storage Providers 🗄️
 
-mbkbucket v4.0.0 supports multiple object and file storage providers simultaneously:
+mbkbucket v4.1.0 supports multiple object and file storage providers simultaneously:
 
 | Provider | Type Identifier | Features / Capabilities |
 |---|---|---|
-| **AWS S3** | `s3` | Multipart upload, signed URLs, range streaming, server-side copy/move |
-| **Cloudflare R2** | `s3` / `r2` | S3-compatible, zero egress fees, signed URLs, multipart upload |
+| **Local Filesystem** | `local` / `local-disk` / `disk` | Cross-platform (Win/Linux/macOS), local directory storage, quota limits, range streaming, zero cloud latency |
+| **AWS S3** | `s3` | Multipart upload, range streaming, server-side copy/move |
+| **Cloudflare R2** | `s3` / `r2` | S3-compatible, zero egress fees, multipart upload, range streaming |
 | **Google Drive** | `gdrive` / `google-drive` | OAuth 2.0 & Service Account auth, native folder hierarchy, direct download URLs, range requests |
-| **MinIO** | `s3` / `minio` | Self-hosted S3-compatible storage, multipart, signed URLs |
+| **MinIO** | `s3` / `minio` | Self-hosted S3-compatible storage, multipart upload |
 | **IDrive e2** | `s3` | S3-compatible high-performance object storage |
 | **Backblaze B2** | `s3` | S3-compatible API endpoints |
 | **DigitalOcean Spaces** | `s3` | S3-compatible object storage |
@@ -212,7 +216,6 @@ Full TypeScript declarations are available in [index.d.ts](index.d.ts).
 | `getFileMetadata(key, connectionName?)` | Retrieve file metadata without downloading content |
 | `fileExists(key, connectionName?)` | Check if a file exists |
 | `getFileSize(key, connectionName?)` | Get file size in bytes (returns `number` or `null`) |
-| `generateSignedUrl(key, operation?, expiresIn?, connectionName?)` | Generate a pre-signed URL (`getObject` or `putObject`) |
 
 ### Folder, Copy & Move Operations
 
@@ -223,11 +226,11 @@ Full TypeScript declarations are available in [index.d.ts](index.d.ts).
 | `moveFile(sourceKey, destKey, options?, connectionName?)` | Move or rename a file within storage |
 | `deleteFolder(prefix, connectionName?)` | Recursively delete all files under a folder prefix |
 
-### Multipart Upload
+### Multipart Upload & Cleanup Scheduler
 
 *(Supported on S3-compatible providers)*
 
-| Function | Description |
+| Function / Export | Description |
 |---|---|
 | `createMultipartUpload(key, contentType?, metadata?, connectionName?)` | Initialize a multipart upload session |
 | `uploadPart(key, uploadId, partNumber, buffer, connectionName?)` | Upload an individual chunk part |
@@ -235,6 +238,17 @@ Full TypeScript declarations are available in [index.d.ts](index.d.ts).
 | `abortMultipartUpload(key, uploadId, connectionName?)` | Abort and cancel a multipart upload |
 | `listIncompleteMultipartUploads(prefix?, connectionName?)` | List pending / incomplete multipart uploads |
 | `cleanupIncompleteMultipartUploads(olderThanDays?, prefix?, connectionName?)` | Clean up abandoned multipart chunks |
+| `CleanupScheduler` / `cleanupScheduler` | Automated background scheduler to purge incomplete uploads on a recurring interval |
+
+```js
+import { cleanupScheduler } from 'mbkbucket';
+
+// Start automated daily background cleanup for uploads older than 7 days
+cleanupScheduler.start({
+  intervalHours: 24,
+  olderThanDays: 7
+});
+```
 
 ### Storage & Connection Management
 
@@ -250,30 +264,54 @@ Full TypeScript declarations are available in [index.d.ts](index.d.ts).
 
 ### Storage Core & Custom Drivers
 
-mbkbucket exposes its core abstraction classes so you can extend or inspect providers programmatically:
+mbkbucket exposes its core abstraction classes so you can extend, inspect, or listen to storage events programmatically:
 
 ```js
-import { StorageProvider, StorageManager, storageManager } from 'mbkbucket';
+import { StorageProvider, LocalStorageProvider, StorageManager, storageManager } from 'mbkbucket';
+
+// Listen to lifecycle events
+storageManager.on('file:uploaded', (e) => console.log('Uploaded:', e.key, e.provider));
+storageManager.on('file:deleted', (e) => console.log('Deleted:', e.key));
+storageManager.on('folder:created', (e) => console.log('Folder created:', e.prefix));
 
 // Register a custom storage driver
-storageManager.registerDriver('local-disk', (name, config) => {
-  return new MyCustomLocalStorageProvider(name, config);
+storageManager.registerDriver('custom-ftp', (name, config) => {
+  return new MyCustomFtpProvider(name, config);
 });
 
 // Register a runtime connection using the driver
-storageManager.registerConnection('local_backup', {
-  type: 'local-disk',
-  basePath: '/var/storage'
+storageManager.registerConnection('backup_ftp', {
+  type: 'custom-ftp',
+  host: 'ftp.example.com'
 });
 ```
 
 Exported classes:
-- `StorageProvider`: Abstract base class with required contracts (`uploadFile`, `downloadFile`, `listFiles`, `deleteFile`, `copyFile`, `moveFile`, `createFolder`, etc.) and `capabilities` flags.
-- `S3StorageProvider`: S3, Cloudflare R2, MinIO implementation.
-- `GoogleDriveStorageProvider`: Google Drive implementation.
-- `StorageManager` / `storageManager`: Connection registry, driver repository, and health orchestrator.
-- `StorageFile`, `StorageFolder`, `StorageListResult`: Standardized metadata models.
+- `StorageProvider`: Abstract base class with required contracts (`uploadFile`, `downloadFile`, `listFiles`, `deleteFile`, `copyFile`, `moveFile`, `createFolder`, `checkHealth`, etc.) and capability assertions.
+- `LocalStorageProvider`: Cross-platform local disk provider (Windows, Linux, macOS) with quota calculation and path sanitization.
+- `S3StorageProvider`: AWS S3, Cloudflare R2, MinIO, IDrive e2 implementation.
+- `GoogleDriveStorageProvider`: Google Drive OAuth 2.0 and Service Account implementation.
+- `StorageManager` / `storageManager`: Connection registry, driver repository, `EventEmitter` lifecycle orchestrator, and health monitor.
+- `StorageItem`, `StorageFile`, `StorageFolder`, `StorageListResult`: Standardized metadata models.
 - Custom Errors: `StorageError`, `StorageNotFoundError`, `StorageAccessDeniedError`, `StorageConflictError`, `StorageValidationError`, `StorageConfigError`, `StorageQuotaExceededError`, `StorageUnsupportedOperationError`.
+
+### Metrics & Observability
+
+mbkbucket includes a Prometheus-compatible metrics registry tracking storage operations, throughput, durations, errors, and active sessions:
+
+```js
+import { metricsRegistry } from 'mbkbucket';
+
+// Retrieve snapshot statistics
+const stats = metricsRegistry.getStats();
+console.log('Total ops:', stats.operations);
+console.log('Bytes transferred:', stats.bytesTransferred);
+
+// Export Prometheus exposition format
+const prometheusText = metricsRegistry.toPrometheusText();
+```
+
+Endpoints `/mbkbucket/api/metrics` (JSON) and `/mbkbucket/metrics` (Prometheus text) are automatically exposed when mounting the router.
 
 ### Google Drive Authentication Helpers
 
@@ -335,6 +373,9 @@ All routes are mounted relative to the router path (typically `/mbkbucket`):
 | `/mbkbucket/api/files` | `GET` | `view` auth | List files and folders with pagination, search, and continuation tokens |
 | `/mbkbucket/api/file-info/*key`| `GET` | `view` auth | Get metadata (Content-Type, size, ETag, last modified) for a key |
 | `/mbkbucket/api/health` | `GET` | `view` auth | Check connectivity for active storage connection |
+| `/mbkbucket/api/metrics` | `GET` | `view` auth | Prometheus metrics serialized as JSON |
+| `/mbkbucket/metrics` | `GET` | `view` auth | Prometheus exposition format text output |
+| `/mbkbucket/api/signed-url` | `GET` | `upload` auth | Generate pre-signed URL for direct client uploads/downloads |
 | `/mbkbucket/api/incomplete-uploads` | `GET` | `view` auth | List incomplete multipart uploads |
 | `/mbkbucket/api/cleanup-uploads` | `POST` | `delete` auth | Clean up incomplete multipart uploads older than specified days |
 | `/mbkbucket/upload` | `POST` | `upload` auth | Upload a single file via `multipart/form-data` with conflict detection |
@@ -457,11 +498,19 @@ MBKBucket.url.player('media/intro.mp4');       // -> /mbkbucket/player/media/int
 
 ### `BucketConnection` (required)
 
-A JSON string defining one or more storage connections. You can configure **S3/R2** connections and **Google Drive** connections together:
+A JSON string defining one or more storage connections. You can configure **Local Disk**, **S3/R2**, and **Google Drive** connections together:
 
 ```env
-BucketConnection={"R2_Bucket":{"BUCKET_NAME":"my-bucket","ACCESS_KEY_ID":"your-key","SECRET_ACCESS_KEY":"your-secret","ENDPOINT":"https://<account-id>.r2.cloudflarestorage.com"},"Google_Drive":{"type":"gdrive","client_id":"your-client-id.apps.googleusercontent.com","client_secret":"your-client-secret","refresh_token":"your-refresh-token","folder_id":"root"}}
+BucketConnection={"Local_Disk":{"type":"local","basePath":"./mbkbucket_storage","maxBytes":10737418240},"R2_Bucket":{"BUCKET_NAME":"my-bucket","ACCESS_KEY_ID":"your-key","SECRET_ACCESS_KEY":"your-secret","ENDPOINT":"https://<account-id>.r2.cloudflarestorage.com"},"Google_Drive":{"type":"gdrive","client_id":"your-client-id.apps.googleusercontent.com","client_secret":"your-client-secret","refresh_token":"your-refresh-token","folder_id":"root"}}
 ```
+
+#### Local Disk Connection Fields
+
+| Field | Required | Description |
+|---|---|---|
+| `type` | Yes | Provider tag: `"local"`, `"local-disk"`, or `"disk"` |
+| `basePath` | No | Base directory path on local disk (supports relative `./storage` or absolute `D:\storage` / `/var/storage`). Defaults to `./mbkbucket_storage`. |
+| `maxBytes` | No | Storage quota limit in bytes (e.g. `10737418240` for 10 GB) |
 
 #### S3 / Cloudflare R2 Connection Fields
 
@@ -527,10 +576,13 @@ npm test
 ### Test Suites Covered
 
 - **Storage Provider & Core Abstractions**: `StorageProvider` interface contracts, capability inspection, `PathStrategy` traversal security, `StorageError` hierarchy, Google Drive consent URL generation.
-- **S3 & Google Drive Drivers**: Health checks, mock provider operations, connection switching, custom driver registration.
+- **Local Storage Provider & Features**: Cross-platform path resolution, directory isolation, quota tracking (`maxBytes`), recursive directory scanning, and byte-range streaming.
+- **Architecture Hardening & Reliability**: Exponential backoff on rate-limits (429/503), `StorageManager` `EventEmitter` lifecycle events, `MetricsRegistry` tracking, and `CleanupScheduler`.
 - **API Routes Logic**: File listing, single and chunked multipart uploads, conflict detection (409), folder creation, single/batch deletion, move and copy operations, health endpoint, metadata inspection.
-- **View Controller & Streaming**: Inline viewer, video byte-range streaming (`206 Partial Content`), unsupported MIME rejection (`415`), public file viewing.
-- **Configuration Validation**: S3 and Google Drive connection validation, malformed JSON recovery, boolean normalization, and error messaging.
+- **View Controller & Streaming**: Inline viewer, open-ended RFC 7233 byte-range streaming for PDF documents and media (`206 Partial Content`), unsupported MIME rejection (`415`), public file viewing.
+- **Helpers & Error Hierarchy**: Utility helpers, range header parsing, stream buffers, cache control builders, and domain-specific error classes.
+- **Configuration Validation**: S3, Local Disk, and Google Drive connection validation, malformed JSON recovery, boolean normalization, and error messaging.
+- **S3 Prefix & Name Resolution**: Application namespace prefixing, delimiter handling, and bucket resolution.
 - **Public API Exports**: Verification of all exported functions, classes, and proxy objects from package root.
 
 ---

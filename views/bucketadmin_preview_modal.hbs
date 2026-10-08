@@ -71,7 +71,7 @@
                   <div class="info-label">Public View URL</div>
                   <div class="info-value font-mono text-break d-flex align-items-center justify-content-between gap-2">
                     <span id="infoPublicUrl" class="text-truncate" style="user-select: all;">—</span>
-                    <button type="button" class="btn btn-outline btn-sm flex-shrink-0" onclick="copyCurrentPreviewPublicLink()" title="Copy Public URL">
+                    <button type="button" class="btn btn-outline btn-sm flex-shrink-0" onclick="copyCurrentPreviewPublicLink(this)" title="Copy Public URL">
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2h8a1 1 0 011 1v8M3 5h8a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>
                       Copy
                     </button>
@@ -84,11 +84,11 @@
       </div>
       <div class="modal-footer preview-footer">
         <div class="preview-actions">
-          <button type="button" class="btn btn-outline btn-sm" id="previewCopyLinkBtn" onclick="copyCurrentPreviewLink()">
+          <button type="button" class="btn btn-outline btn-sm" id="previewCopyLinkBtn" onclick="copyCurrentPreviewLink(this)">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2h8a1 1 0 011 1v8M3 5h8a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>
             Copy Link
           </button>
-          <button type="button" class="btn btn-outline btn-sm" id="previewCopyPublicLinkBtn" onclick="copyCurrentPreviewPublicLink()" title="Copy publicly accessible link" style="{{#unless publicViewEnabled}}display: none;{{/unless}}">
+          <button type="button" class="btn btn-outline btn-sm" id="previewCopyPublicLinkBtn" onclick="copyCurrentPreviewPublicLink(this)" title="Copy publicly accessible link" style="{{#unless publicViewEnabled}}display: none;{{/unless}}">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.25"/><path d="M1.75 8h12.5M8 1.75a10.5 10.5 0 010 12.5 10.5 10.5 0 010-12.5z"/></svg>
             Copy Public Link
           </button>

@@ -144,3 +144,5 @@ package-lock.json
 *.sqlite-wal
 
 *.sqlite
+
+mbkbucket_storage

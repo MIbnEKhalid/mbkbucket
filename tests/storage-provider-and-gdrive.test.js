@@ -38,7 +38,6 @@ test('S3StorageProvider exposes correct type and capabilities', () => {
 
   assert.equal(s3.type, 's3');
   assert.equal(s3.capabilities.multipart, true);
-  assert.equal(s3.capabilities.presignedUrls, true);
   assert.equal(s3.capabilities.ranges, true);
   assert.equal(s3.capabilities.copy, true);
   assert.equal(s3.capabilities.move, true);
@@ -55,7 +54,6 @@ test('GoogleDriveStorageProvider exposes correct type and capabilities', () => {
 
   assert.equal(gdrive.type, 'gdrive');
   assert.equal(gdrive.capabilities.multipart, false);
-  assert.equal(gdrive.capabilities.presignedUrls, false);
   assert.equal(gdrive.capabilities.nativeFolders, true);
   assert.equal(gdrive.capabilities.ranges, true);
   assert.equal(gdrive.capabilities.copy, true);

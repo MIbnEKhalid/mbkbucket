@@ -20,7 +20,6 @@ class InMemoryMockProvider extends StorageProvider {
   get capabilities() {
     return {
       multipart: true,
-      presignedUrls: true,
       nativeFolders: false,
       ranges: true,
       copy: true,
@@ -172,10 +171,6 @@ class InMemoryMockProvider extends StorageProvider {
 
   async abortMultipartUpload(key) {
     return { key, abortedAt: new Date().toISOString() };
-  }
-
-  async generateSignedUrl(key, operation = 'getObject', expiresIn = 3600) {
-    return { url: `https://signed.example.com/${key}?exp=${expiresIn}`, key, operation, expiresIn };
   }
 
   async copyFile(sourceKey, destKey) {

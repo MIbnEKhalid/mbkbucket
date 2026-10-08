@@ -62,12 +62,30 @@ export interface GoogleDriveConfig {
   folder_id?: string;
   /** Additional custom properties */
   [key: string]: any;
+/**
+ * Configuration options for a local filesystem storage connection.
+ */
+export interface LocalDiskConfig {
+  /** Provider type discriminator */
+  type?: "local" | "local-disk" | "disk";
+  /** Root directory path on local disk */
+  basePath?: string;
+  /** Alias for basePath */
+  rootPath?: string;
+  /** Alias for basePath */
+  path?: string;
+  /** Alias for basePath */
+  directory?: string;
+  /** Max storage quota in bytes */
+  maxBytes?: number;
+  /** Additional custom properties */
+  [key: string]: any;
 }
 
 /**
  * Supported storage connection types.
  */
-export type StorageConnectionConfig = BucketConfig | GoogleDriveConfig;
+export type StorageConnectionConfig = BucketConfig | GoogleDriveConfig | LocalDiskConfig;
 
 /**
  * Mapping of connection identifier names to their corresponding configurations.
@@ -75,17 +93,88 @@ export type StorageConnectionConfig = BucketConfig | GoogleDriveConfig;
 export type StorageConnectionMap = Record<string, StorageConnectionConfig>;
 
 /**
- * Explicit provider capabilities.
+ * Explicit provider capabilities descriptor.
  */
-export interface StorageCapabilities {
+export class StorageCapabilities {
   multipart: boolean;
-  presignedUrls: boolean;
+  resumable: boolean;
   nativeFolders: boolean;
   ranges: boolean;
   copy: boolean;
   move: boolean;
   search: boolean;
   directDownloadUrl: boolean;
+  versioning: boolean;
+  publicUrls: boolean;
+  metadata: boolean;
+  constructor(flags?: Partial<StorageCapabilities>);
+  has(capability: string): boolean;
+  assert(capability: string, operationName?: string, providerType?: string): void;
+  toJSON(): Record<string, boolean>;
+}
+
+/**
+ * Abstract provider-independent storage item (file or folder).
+ */
+export class StorageItem {
+  id: string;
+  nativeId: string | null;
+  name: string;
+  path: string;
+  parentPath: string;
+  type: "file" | "folder";
+  size: number;
+  mimeType: string;
+  etag: string;
+  lastModified: Date;
+  createdAt?: Date;
+  provider: string;
+  metadata: Record<string, any>;
+  constructor(props?: Record<string, any>);
+  get isFolder(): boolean;
+  get isFile(): boolean;
+}
+
+/**
+ * Standardized file item representation across all providers.
+ */
+export class StorageFile extends StorageItem {
+  Key: string;
+  Size: number;
+  LastModified: Date;
+  ETag: string;
+  ContentType: string;
+  StorageClass: string;
+  webViewLink?: string;
+  webContentLink?: string;
+  constructor(props?: Record<string, any>);
+}
+
+/**
+ * Standardized folder representation.
+ */
+export class StorageFolder extends StorageItem {
+  Prefix: string;
+  constructor(prefixOrProps?: string | Record<string, any>, id?: string);
+}
+
+/**
+ * Standardized paginated listing result.
+ */
+export class StorageListResult {
+  Contents: StorageFile[];
+  CommonPrefixes: StorageFolder[];
+  NextContinuationToken: string | null;
+  nextToken: string | null;
+  IsTruncated: boolean;
+  hasMore: boolean;
+  KeyCount: number;
+  totalFiles: number;
+  requestedAt: string;
+  files: StorageFile[];
+  folders: StorageFolder[];
+  items: StorageItem[];
+  constructor(props?: Record<string, any>);
 }
 
 /**
@@ -94,10 +183,13 @@ export interface StorageCapabilities {
 export abstract class StorageProvider {
   name: string;
   config: Record<string, any>;
+  rootPrefix: string;
   constructor(name: string, config?: Record<string, any>);
   get type(): string;
   get capabilities(): StorageCapabilities;
-  abstract listFiles(prefix?: string, options?: ListFilesOptions): Promise<FileListResult>;
+  supports(capabilityName: string): boolean;
+  assertCapability(capabilityName: string, operationName?: string): void;
+  abstract listFiles(prefix?: string, options?: ListFilesOptions): Promise<StorageListResult>;
   abstract uploadFile(key: string, fileBuffer: Buffer | Uint8Array | Readable, contentType: string, options?: UploadOptions): Promise<UploadResult>;
   abstract downloadFile(key: string, options?: DownloadOptions): Promise<DownloadResult>;
   abstract deleteFile(key: string, options?: any): Promise<DeleteResult>;
@@ -107,7 +199,6 @@ export abstract class StorageProvider {
   abstract getFileMetadata(key: string, options?: any): Promise<FileMetadata>;
   abstract fileExists(key: string, options?: any): Promise<boolean>;
   abstract getFileSize(key: string, options?: any): Promise<number | null>;
-  abstract generateSignedUrl(key: string, operation?: "getObject" | "putObject", expiresIn?: number, options?: any): Promise<SignedUrlResult>;
   abstract copyFile(sourceKey: string, destKey: string, options?: any): Promise<any>;
   abstract moveFile(sourceKey: string, destKey: string, options?: any): Promise<any>;
   abstract checkHealth(): Promise<HealthCheckResult>;
@@ -133,21 +224,65 @@ export class GoogleDriveStorageProvider extends StorageProvider {
 }
 
 /**
+ * Local filesystem storage provider implementation.
+ */
+export class LocalStorageProvider extends StorageProvider {
+  baseDirectory: string;
+  constructor(name: string, config?: { basePath?: string; rootPath?: string; directory?: string });
+  getStorageQuota(): Promise<{ usedBytes: number; fileCount: number; usedFormatted: string; path: string }>;
+}
+
+/**
  * Storage connection registry and manager.
  */
-export class StorageManager {
+export class StorageManager extends EventEmitter {
+  registerDriver(type: string, factory: (name: string, config: any) => StorageProvider): void;
   registerProviderFactory(type: string, factory: (name: string, config: any) => StorageProvider): void;
+  hasDriver(type: string): boolean;
+  getDriverTypes(): string[];
   reloadFromEnv(): void;
   registerConnection(name: string, config: StorageConnectionConfig): void;
+  unregisterConnection(name: string): void;
+  hasConnection(name: string): boolean;
   getAvailableConnectionNames(): string[];
+  setDefaultConnectionName(name: string | null): void;
   getDefaultConnectionName(): string | null;
   resolveConnectionName(name?: string): string;
   getConnectionConfig(name?: string): StorageConnectionConfig;
   getProvider(name?: string): StorageProvider;
+  clearCache(): void;
+  dispose(): Promise<void>;
   checkHealth(name?: string): Promise<HealthCheckResult>;
 }
 
 export const storageManager: StorageManager;
+
+/**
+ * Observability & Prometheus metrics registry.
+ */
+export class MetricsRegistry {
+  reset(): void;
+  recordOperation(operation: string, options?: { provider?: string; status?: string; durationMs?: number; bytes?: number }): void;
+  recordError(operation: string, provider?: string, errorType?: string): void;
+  incrementActiveMultipart(delta?: number): void;
+  getStats(): Record<string, any>;
+  toPrometheusText(): string;
+}
+
+export const metricsRegistry: MetricsRegistry;
+
+/**
+ * Automated multipart cleanup scheduler.
+ */
+export class CleanupScheduler {
+  runOnce(options?: { olderThanDays?: number; connectionNames?: string[] }): Promise<any>;
+  start(options?: { intervalHours?: number; olderThanDays?: number; connectionNames?: string[] }): void;
+  stop(): void;
+  getStatus(): { running: boolean; lastRun: string | null; lastStats: any };
+}
+
+export const cleanupScheduler: CleanupScheduler;
+
 
 /**
  * Mapping of bucket identifier names to their corresponding BucketConfig.
@@ -430,24 +565,6 @@ export interface DeleteFolderResult {
   prefix?: string;
 }
 
-/**
- * Pre-signed URL generation result.
- */
-export interface SignedUrlResult {
-  /** Generated pre-signed URL string */
-  url: string;
-  /** Object key */
-  key: string;
-  /** S3 operation type ('getObject' or 'putObject') */
-  operation: string;
-  /** Expiration time in seconds */
-  expiresIn: number;
-  /** ISO 8601 timestamp when the signed URL expires */
-  expiresAt: string;
-  /** ISO 8601 timestamp when the signed URL was generated */
-  generatedAt: string;
-}
-
 // ===========================================================================
 // Multipart Upload Types
 // ===========================================================================
@@ -720,20 +837,6 @@ export function fileExists(key: string, bucketName?: string): Promise<boolean>;
  * @param bucketName Target bucket identifier name.
  */
 export function getFileSize(key: string, bucketName?: string): Promise<number | null>;
-
-/**
- * Generates a pre-signed URL for temporary direct access to S3/R2.
- * @param key Target S3 key.
- * @param operation S3 operation: 'getObject' (default) or 'putObject'.
- * @param expiresIn URL lifetime in seconds (default: 3600).
- * @param bucketName Target bucket identifier name.
- */
-export function generateSignedUrl(
-  key: string,
-  operation?: "getObject" | "putObject" | string,
-  expiresIn?: number,
-  bucketName?: string
-): Promise<SignedUrlResult>;
 
 /**
  * Initiates an S3 multipart upload for large files.

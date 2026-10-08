@@ -36,7 +36,6 @@ test('index.js exports all expected public APIs', () => {
   assert.ok(typeof index.getFileMetadata === 'function', 'getFileMetadata is exported');
   assert.ok(typeof index.fileExists === 'function', 'fileExists is exported');
   assert.ok(typeof index.getFileSize === 'function', 'getFileSize is exported');
-  assert.ok(typeof index.generateSignedUrl === 'function', 'generateSignedUrl is exported');
   assert.ok(typeof index.createMultipartUpload === 'function', 'createMultipartUpload is exported');
   assert.ok(typeof index.uploadPart === 'function', 'uploadPart is exported');
   assert.ok(typeof index.completeMultipartUpload === 'function', 'completeMultipartUpload is exported');
@@ -57,12 +56,23 @@ test('index.js exports all expected public APIs', () => {
 
   // New provider-independent storage exports
   assert.ok(typeof index.StorageProvider === 'function', 'StorageProvider base class is exported');
+  assert.ok(typeof index.StorageCapabilities === 'function', 'StorageCapabilities class is exported');
+  assert.ok(typeof index.StorageItem === 'function', 'StorageItem class is exported');
+  assert.ok(typeof index.StorageFile === 'function', 'StorageFile class is exported');
+  assert.ok(typeof index.StorageFolder === 'function', 'StorageFolder class is exported');
+  assert.ok(typeof index.StorageListResult === 'function', 'StorageListResult class is exported');
   assert.ok(typeof index.S3StorageProvider === 'function', 'S3StorageProvider is exported');
   assert.ok(typeof index.GoogleDriveStorageProvider === 'function', 'GoogleDriveStorageProvider is exported');
+  assert.ok(typeof index.LocalStorageProvider === 'function', 'LocalStorageProvider is exported');
   assert.ok(typeof index.StorageManager === 'function', 'StorageManager class is exported');
   assert.ok(index.storageManager, 'storageManager instance is exported');
+  assert.ok(typeof index.MetricsRegistry === 'function', 'MetricsRegistry class is exported');
+  assert.ok(index.metricsRegistry, 'metricsRegistry instance is exported');
+  assert.ok(typeof index.CleanupScheduler === 'function', 'CleanupScheduler class is exported');
+  assert.ok(index.cleanupScheduler, 'cleanupScheduler instance is exported');
   assert.ok(typeof index.getGoogleAuthUrl === 'function', 'getGoogleAuthUrl is exported');
   assert.ok(typeof index.exchangeCodeForTokens === 'function', 'exchangeCodeForTokens is exported');
   assert.ok(typeof index.refreshGoogleAccessToken === 'function', 'refreshGoogleAccessToken is exported');
   assert.ok(typeof index.getServiceAccountAccessToken === 'function', 'getServiceAccountAccessToken is exported');
 });
+

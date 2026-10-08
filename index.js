@@ -21,13 +21,16 @@ if (process.env.NODE_ENV === "dev") {
   await checkVersion();
   await runHealthCheck();
   server.listen(port, () => {
+    console.log(`[mbkbucket] 🚀 Server running on http://localhost:${port}`);
     debugServer("Server running on http://localhost:%s", port);
   });
 }
 
 export * from "./lib/src/core/storage/index.js";
+export * from "./lib/src/core/metrics.js";
+export * from "./lib/src/utils/cleanup-scheduler.js";
 export * from "./lib/src/services/storage.service.js";
 export * from "./lib/src/services/s3.service.js";
 export * from "./lib/src/config/index.js";
 export { default as bucket, createBucketRouter } from "./lib/src/routes/index.js";
-export default server;
+export default server;

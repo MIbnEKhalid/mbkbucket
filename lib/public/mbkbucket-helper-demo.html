@@ -13,11 +13,6 @@
   <title>Helper Utils Demo — MBKBucket</title>
   <meta name="description" content="Interactive demo of MBKBucket frontend helper utilities: gallery picker, file input, upload widget, multi-select, live preview binding, and API helpers.">
 
-  <!-- Fonts (same as bucket.hbs) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
   <!-- MBKBucket design system + helper styles -->
   <link rel="stylesheet" href="/mbkbucket/bucketadmin.css">
   <link rel="stylesheet" href="/mbkbucket/mbkbucket-helper.css">
@@ -834,14 +829,12 @@ uploader.<span class="fn">clear</span>();</pre>
           <span class="chip">MBKBucket.url.*</span>
           <span class="chip">listFiles</span>
           <span class="chip">uploadFile</span>
-          <span class="chip">getSignedUrl</span>
         </div>
       </div>
 
       <div class="demo-tabs">
         <div class="demo-tab active" data-tab="urls" data-group="api">URL Builders</div>
         <div class="demo-tab" data-tab="list" data-group="api">List Files</div>
-        <div class="demo-tab" data-tab="signed" data-group="api">Signed URL</div>
         <div class="demo-tab" data-tab="code" data-group="api">Code Reference</div>
       </div>
 
@@ -896,30 +889,6 @@ uploader.<span class="fn">clear</span>();</pre>
             <span id="api-list-status">—</span>
           </div>
           <pre id="api-list-pre"></pre>
-        </div>
-      </div>
-
-      <!-- Signed URL -->
-      <div class="demo-pane" data-pane="api-signed">
-        <div class="form-row">
-          <label class="form-label" for="api-signed-key">File key:</label>
-          <div class="flex-row">
-            <input id="api-signed-key"
-                   class="demo-input"
-                   type="text"
-                   style="max-width:320px"
-                   placeholder="e.g. images/photo.jpg">
-            <button class="btn btn-primary btn-sm" onclick="demoSignedUrl()">Get URL</button>
-          </div>
-          <div class="form-hint">Calls <code class="inline-code">MBKBucket.api.getSignedUrl(key, { expiresIn: 3600 })</code></div>
-        </div>
-
-        <div class="api-result" id="api-signed-result" style="display:none">
-          <div class="api-result-header">
-            <div class="api-dot" id="api-signed-dot"></div>
-            <span id="api-signed-status">—</span>
-          </div>
-          <pre id="api-signed-pre"></pre>
         </div>
       </div>
 
@@ -1130,33 +1099,6 @@ MBKBucket.toast.<span class="fn">info</span>(<span class="str">'Loading…'</spa
       dot.className = 'api-dot err';
       status.textContent = `Error: ${err.message}`;
       pre.textContent = JSON.stringify({ error: err.message, status: err.status }, null, 2);
-    }
-  }
-
-  // ── 4. API: signed URL ───────────────────────────────────────
-  async function demoSignedUrl() {
-    const key = document.getElementById('api-signed-key').value.trim();
-    if (!key) { MBKBucket.toast.warning('Enter a file key first'); return; }
-
-    const result = document.getElementById('api-signed-result');
-    const dot    = document.getElementById('api-signed-dot');
-    const status = document.getElementById('api-signed-status');
-    const pre    = document.getElementById('api-signed-pre');
-
-    result.style.display = '';
-    dot.className = 'api-dot';
-    status.textContent = 'Loading…';
-    pre.textContent = '';
-
-    try {
-      const data = await MBKBucket.api.getSignedUrl(key, { expiresIn: 3600 });
-      dot.className = 'api-dot ok';
-      status.textContent = `200 OK — expires in ${data.expiresIn}s`;
-      pre.textContent = JSON.stringify(data, null, 2);
-    } catch (err) {
-      dot.className = 'api-dot err';
-      status.textContent = `Error: ${err.message}`;
-      pre.textContent = JSON.stringify({ error: err.message }, null, 2);
     }
   }
 </script>
