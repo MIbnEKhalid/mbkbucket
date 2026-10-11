@@ -1,7 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
-import { escapeHtml, getBaseName, getFileExt, getMimeType, trimSlashes, trimLeadingSlashes, getFolderPath, normalizeKeyParam, buildKey, formatBytes, formatDate, streamToBuffer, destroyStream, nowIso, isSensitiveTextType, buildCacheControl, parseRangeHeader, commonHandlebarsHelpers } from '../lib/src/utils/helpers.js';
+import { escapeHtml, getBaseName, getFileExt, trimSlashes, trimLeadingSlashes, commonHandlebarsHelpers } from 'mbkutils';
+import { getMimeType, getFolderPath, normalizeKeyParam, buildKey, formatBytes, formatDate, streamToBuffer, destroyStream, nowIso, isSensitiveTextType, buildCacheControl, parseRangeHeader } from '../lib/src/utils/helpers.js';
 import { classifyApiError, classifyViewError, sendApiError, sendViewError } from '../lib/src/utils/errors.js';
 import { compareVersions } from '../lib/src/config/index.js';
 
@@ -104,7 +105,7 @@ test('parseRangeHeader parses valid ranges correctly', () => {
 test('commonHandlebarsHelpers perform comparisons and transforms', () => {
   assert.equal(commonHandlebarsHelpers.eq(1, 1), true);
   assert.equal(commonHandlebarsHelpers.eq(1, 2), false);
-  assert.equal(commonHandlebarsHelpers.neq(1, 2), true);
+  assert.equal(commonHandlebarsHelpers.ne(1, 2), true);
   assert.equal(commonHandlebarsHelpers.or(false, true, {}), true);
   assert.equal(commonHandlebarsHelpers.and(true, true, {}), true);
   assert.equal(commonHandlebarsHelpers.and(true, false, {}), false);

@@ -3,22 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import {
-  LocalStorageProvider,
-  StorageManager,
-  MetricsRegistry,
-  metricsRegistry,
-  CleanupScheduler,
-  cleanupScheduler,
-  uploadFile,
-  downloadFile,
-  deleteFile,
-  listFiles,
-  createFolder,
-  deleteFolder,
-  copyFile,
-  moveFile
-} from '../index.js';
+import { LocalStorageProvider, StorageManager, MetricsRegistry, metricsRegistry, CleanupScheduler, cleanupScheduler, uploadFile, downloadFile, deleteFile, listFiles, createFolder, deleteFolder, copyFile, moveFile } from '../index.js';
 
 describe('LocalStorageProvider & Architecture Features', () => {
   let tmpDir;

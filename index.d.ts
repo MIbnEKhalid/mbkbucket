@@ -1104,9 +1104,6 @@ export function parseRangeHeader(
  */
 export function renderPlayerPage(safeFileName: string, encodedKey: string, bucketQuery: string): string;
 
-/** Common Handlebars helper functions */
-export const commonHandlebarsHelpers: Record<string, (...args: any[]) => any>;
-
 /**
  * Maps error to API HTTP status code and standardized error code.
  */
