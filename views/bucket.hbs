@@ -12,8 +12,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{#if page}}{{page}} - {{/if}}Web Portal</title>
-    <script src="/mbkauthe/main.js" defer></script>
-    <link rel="icon" type="image/x-icon" href="/icon.svg">
+    <script src="/mbkauthe/main.js{{acachebust}}" defer></script>
+    <link rel="icon" type="image/x-icon" href="/icon.svg{{bcachebust}}">
     <style>
         :root {
             --primary-color-ml: #0f766e;
@@ -152,7 +152,7 @@
     <div class="main-content">
         <nav class="top-nav">
             <div class="logo" onclick="window.location='/mbkbucket'">
-                <img src="/icon.svg" alt="Logo">
+                <img src="/icon.svg{{bcachebust}}" alt="Logo">
                 <span>MBKBucket</span>
             </div>
 
