@@ -8,13 +8,13 @@
 <!DOCTYPE html>
 <html lang="en">
 
-{{> head pageTitle="System Information" ogUrl="/mbkbucket/info"}}
+{{> mbkutils_head pageTitle="System Information" ogUrl="/mbkbucket/info"}}
 
 <body>
-    {{> header appName=APP_NAME customURL="/mbkbucket"}}
+    {{> mbkutils_header appName=APP_NAME customURL="/mbkbucket"}}
 
     <section class="login-container">
-        {{> backgroundElements}}
+        {{> mbkutils_backgroundElements}}
 
         <div class="auth-card info-box">
             <div class="info-header">
@@ -130,6 +130,6 @@
         </div>
     </section>
 
-    {{> versionInfo}}
+    {{> mbkutils_versionInfo}}
 </body>
 </html>
