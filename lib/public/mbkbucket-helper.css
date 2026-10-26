@@ -477,7 +477,6 @@
 }
 .mbkh-item:hover {
   border-color: var(--mbkh-primary);
-  transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(15, 118, 110, 0.1);
   background: #ffffff;
 }
@@ -871,7 +870,6 @@
 .mbkh-btn-primary:hover {
   background: var(--mbkh-primary-dk);
   border-color: var(--mbkh-primary-dk);
-  transform: translateY(-1px);
   color: #fff;
 }
 .mbkh-btn-primary:disabled {

@@ -172,6 +172,57 @@ test('View GET /mbkbucket/p_view/:key serves public view when enabled', async ()
     .expect(200);
 
   assert.equal(res.text, 'Text preview content');
+  assert.equal(res.headers['access-control-allow-origin'], '*');
+  assert.ok(res.headers['access-control-expose-headers'].includes('Content-Range'));
+});
+
+test('View HEAD /mbkbucket/p_view/:key returns metadata headers without downloading body', async () => {
+  const res = await request(app)
+    .head('/mbkbucket/p_view/document.pdf?bucket=view-bucket')
+    .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+    .set('Accept', 'application/pdf')
+    .expect(200);
+
+  assert.equal(res.headers['content-type'], 'application/pdf');
+  assert.equal(res.headers['accept-ranges'], 'bytes');
+  assert.ok(res.headers['vercel-cdn-cache-control']);
+  assert.ok(res.headers['cdn-cache-control']);
+  assert.equal(res.text, undefined);
+});
+
+test('View GET /mbkbucket/p_view/:key serves PDF byte range with 206 and Vercel CDN headers', async () => {
+  const res = await request(app)
+    .get('/mbkbucket/p_view/document.pdf?bucket=view-bucket')
+    .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+    .set('Range', 'bytes=0-10')
+    .expect(206);
+
+  assert.equal(res.headers['content-type'], 'application/pdf');
+  assert.equal(res.headers['accept-ranges'], 'bytes');
+  assert.ok(res.headers['content-range'].startsWith('bytes 0-10/'));
+  assert.ok(res.headers['vercel-cdn-cache-control'].includes('s-maxage=31536000'));
+  assert.ok(res.headers['cdn-cache-control'].includes('s-maxage=31536000'));
+});
+
+test('View GET /mbkbucket/p_view/:key?download=1 triggers attachment download', async () => {
+  const res = await request(app)
+    .get('/mbkbucket/p_view/document.pdf?bucket=view-bucket&download=1')
+    .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+    .set('Accept', 'application/pdf')
+    .expect(200);
+
+  assert.ok(res.headers['content-disposition'].includes('attachment'));
+  assert.ok(res.headers['content-disposition'].includes('document.pdf'));
+});
+
+test('View OPTIONS /mbkbucket/p_view/:key handles CORS preflight with 204', async () => {
+  const res = await request(app)
+    .options('/mbkbucket/p_view/document.pdf?bucket=view-bucket')
+    .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+    .expect(204);
+
+  assert.equal(res.headers['access-control-allow-origin'], '*');
+  assert.ok(res.headers['access-control-allow-methods'].includes('GET'));
 });
 
 test('Info GET /mbkbucket/info.json returns safe public metadata without credentials', async () => {
