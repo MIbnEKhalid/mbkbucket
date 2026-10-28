@@ -1,6 +1,6 @@
 {
   "name": "mbkbucket",
-  "version": "4.4.2",
+  "version": "4.4.3",
   "description": "Flexible S3/R2/Google Drive/Local bucket management — library, Express router, and standalone server CLI for mbktech.org applications. Provides upload, download, listing, multipart utilities, and a standalone server runner with built-in configuration validation and health checks",
   "author": "Muhammad Bin Khalid",
   "homepage": "https://github.com/MIbnEKhalid/mbkbucket#readme",
@@ -22,7 +22,7 @@
     "#logger": "./lib/src/utils/logger.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/client-s3": "^3.1157.0",
     "compression": "^1.8.2",
     "debug": "^4.4.3",
     "dotenv": "^18.0.5",
